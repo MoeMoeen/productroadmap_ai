@@ -12,4 +12,6 @@ db.sqlite3
 # OS / IDE files
 .DS_Store
 .vscode/
+
+# Environment variables / Secrets
 .env
