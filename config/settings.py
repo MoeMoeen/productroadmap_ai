@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'roadmap',
     'chat',
     'brain',
+    'common',
 ]
 
 MIDDLEWARE = [
