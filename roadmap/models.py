@@ -1,6 +1,7 @@
 from django.db import models
-from common.models import TimeStampedModel
+from common.models import TimeStampedModel, ContributionType
 from accounts.models import Organization, User
+
 
 # Create your models here.
 
@@ -282,15 +283,24 @@ class BusinessObjectiveInitiative(models.Model):
         default=1,
         help_text="Lower number = higher priority for this objective"
     )
-    type_of_contribution = models.CharField(
-        max_length=50,
-        choices=[
-            ('direct', 'Direct'),
-            ('indirect', 'Indirect'),
-            ('enabling', 'Enabling'),
-        ],
-        default='direct'
+    # type_of_contribution = models.CharField(
+    #     max_length=50,
+    #     choices=[
+    #         ('direct', 'Direct'),
+    #         ('indirect', 'Indirect'),
+    #         ('enabling', 'Enabling'),
+    #     ],
+    #     default='direct'
+    # )
+
+    contribution_type = models.ForeignKey(
+    ContributionType,
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name="contributions"
     )
+
     confidence_level = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -305,7 +315,7 @@ class BusinessObjectiveInitiative(models.Model):
         ordering = ['priority']
 
     def __str__(self):
-        return f"{self.business_initiative.title} ↔ {self.business_objective.title} ({self.type_of_contribution})"
+        return f"{self.business_initiative.title} ↔ {self.business_objective.title} ({self.contribution_type})"
 
 
 class CustomerSegment(TimeStampedModel):
@@ -356,45 +366,59 @@ class CustomerSegment(TimeStampedModel):
         verbose_name = 'Customer Segment'
         verbose_name_plural = 'Customer Segments'
 
-    class CustomerObjective(TimeStampedModel):
-        """Represents a key goal or outcome customers aim to achieve."""
-        name = models.CharField(max_length=255)
-        description = models.TextField(blank=True, null=True)
-        metric_name = models.CharField(max_length=255, blank=True, null=True)
-        current_value = models.FloatField(null=True, blank=True)
-        target_value = models.FloatField(null=True, blank=True)
-        unit = models.CharField(max_length=50, blank=True, null=True)
-        organization = models.ForeignKey(
-            Organization,
-            on_delete=models.CASCADE,
-            related_name='customer_objectives',
-            null=True,
-            blank=True
-        )
-        customer_segments = models.ManyToManyField(
+class CustomerObjective(TimeStampedModel):
+    """Represents a key goal or outcome customers aim to achieve."""
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    metric_name = models.CharField(max_length=255, blank=True, null=True)
+    current_value = models.FloatField(null=True, blank=True)
+    target_value = models.FloatField(null=True, blank=True)
+    unit = models.CharField(max_length=50, blank=True, null=True)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name='customer_objectives',
+        null=True,
+        blank=True
+    )
+    customer_segments = models.ManyToManyField(
         'CustomerSegment',
         related_name='customer_objectives',
         blank=True
-        )
-        product_initiatives = models.ManyToManyField(
+    )
+    product_initiatives = models.ManyToManyField(
         'ProductInitiative',
         through='CustomerObjectiveInitiative',
         related_name='customer_objectives'
-        )
+    )
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Customer Objective'
+        verbose_name_plural = 'Customer Objectives'
 
 class CustomerObjectiveInitiative(models.Model):
     customer_objective = models.ForeignKey("CustomerObjective", on_delete=models.CASCADE)
     product_initiative = models.ForeignKey("ProductInitiative", on_delete=models.CASCADE)
     
-    contribution_type = models.CharField(
-        max_length=50,
-        choices=[
-            ("discovery", "Discovery"),
-            ("conversion", "Conversion"),
-            ("retention", "Retention"),
-            ("satisfaction", "Satisfaction"),
-        ],
-        default="discovery"
+    # contribution_type = models.CharField(
+    #     max_length=50,
+    #     choices=[
+    #         ("discovery", "Discovery"),
+    #         ("conversion", "Conversion"),
+    #         ("retention", "Retention"),
+    #         ("satisfaction", "Satisfaction"),
+    #     ],
+    #     default="discovery"
+    # )
+
+    contribution_type = models.ForeignKey(
+        ContributionType,
+        on_delete=models.CASCADE,
+        related_name='customer_objective_initiatives'
     )
     
     confidence = models.DecimalField(
@@ -414,5 +438,51 @@ class CustomerObjectiveInitiative(models.Model):
         return f"{self.product_initiative} → {self.customer_objective} ({self.contribution_type})"
 
 
+# roadmap/models.py
+
+
+class Roadmap(TimeStampedModel):
+    """
+    A strategic roadmap that links together product, business, and customer objectives/initiatives.
+    """
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="roadmaps"
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_roadmaps"
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+
+    prioritization_logic = models.TextField(
+        blank=True,
+        help_text="Explanation of prioritization logic used (e.g. RICE, Value/Effort)"
+    )
+
+    product_initiatives = models.ManyToManyField(
+        ProductInitiative,
+        blank=True,
+        related_name="roadmaps"
+    )
+    business_initiatives = models.ManyToManyField(
+        BusinessInitiative,
+        blank=True,
+        related_name="roadmaps"
+    )
+    customer_objectives = models.ManyToManyField(
+        'CustomerObjective',
+        blank=True,
+        related_name="roadmaps"
+    )
+
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.organization.name})"
+
+    class Meta:
+        ordering = ['-created_at']
 
 

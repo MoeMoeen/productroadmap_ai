@@ -1,6 +1,11 @@
 from django.db import models
+from django.apps import apps
 
 # Create your models here.
+
+
+def get_organization_model():
+    return apps.get_model('accounts', 'Organization')
 
 class TimeStampedModel(models.Model):
     """
@@ -15,4 +20,21 @@ class TimeStampedModel(models.Model):
         ordering = ['-created_at']  # Default ordering by created_at descending 
 
 
-    
+
+class ContributionType(models.Model):
+    organization = models.ForeignKey(
+        'accounts.Organization',
+        on_delete=models.CASCADE,
+        related_name="contribution_types"
+    )
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        unique_together = ("organization", "name")
+        ordering = ["name"]
+
