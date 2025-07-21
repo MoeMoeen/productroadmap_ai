@@ -22,6 +22,10 @@ class TimeStampedModel(models.Model):
 
 
 class ContributionType(models.Model):
+    """Model representing a type of contribution to a business objective. 
+    Dynamic model for storing reusable types (like "Conversion", "Discovery", etc.)
+    """
+    # Use the dynamic function to get the Organization model
     organization = models.ForeignKey(
         'accounts.Organization',
         on_delete=models.CASCADE,

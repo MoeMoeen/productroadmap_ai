@@ -7,7 +7,8 @@ from .models import Roadmap
 from .models import CustomerSegment
 from .models import CustomerObjective
 from .models import ProductInitiative
-from .models import CustomerObjectiveInitiative
+from .models import CustomerObjectiveProductInitiative
+from .models import RoadmapEntry
 
 @admin.register(BusinessObjectiveInitiative)
 class BusinessObjectiveInitiativeAdmin(admin.ModelAdmin):
@@ -41,7 +42,7 @@ class CustomerObjectiveAdmin(admin.ModelAdmin):
 
 
 class CustomerObjectiveInline(admin.TabularInline):
-    model = CustomerObjectiveInitiative
+    model = CustomerObjectiveProductInitiative
     extra = 1
     verbose_name = "Customer Objective Initiative"
     verbose_name_plural = "Customer Objective Initiatives"
@@ -54,3 +55,11 @@ class ProductInitiativeAdmin(admin.ModelAdmin):
 
     # ✅ Correct way to manage related through-model
     inlines = [CustomerObjectiveInline]
+
+
+class RoadmapEntryInline(admin.TabularInline):
+    model = RoadmapEntry
+    extra = 1
+    verbose_name = "Roadmap Entry"
+    verbose_name_plural = "Roadmap Entries"
+    autocomplete_fields = ["product_initiative"]
