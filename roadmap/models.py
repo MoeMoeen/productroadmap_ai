@@ -6,7 +6,9 @@ from accounts.models import Organization, User
 # Create your models here.
 
 class ProductKPI(TimeStampedModel):
-    """Represents a KPI or metric used to evaluate product performance."""
+    """Represents a KPI or metric used to evaluate product performance. It's 
+    typically used in product initiatives to track progress against specific customer objectives 
+    and/or business priority."""
     organization = models.ForeignKey(
         Organization, 
         on_delete=models.CASCADE,
