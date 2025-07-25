@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'chat',
     'brain',
     'common',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [

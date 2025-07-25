@@ -92,7 +92,8 @@ class ProductInitiative(TimeStampedModel):
 class ProductInitiativeKPI(models.Model):
     """Through model to associate ProductInitiative and ProductKPI."""
     product_initiative = models.ForeignKey(ProductInitiative, on_delete=models.CASCADE, related_name='product_initiative_kpis')
-    product_kpi = models.ForeignKey(ProductKPI, on_delete=models.CASCADE, related_name='product_initiative_kpis')
+    product_kpi = models.ForeignKey(ProductKPI, on_delete=models.CASCADE, 
+                                    related_name='product_initiative_kpis')
     target_value = models.FloatField()
     current_value = models.FloatField()
     weight = models.DecimalField(
@@ -112,7 +113,7 @@ class ProductInitiativeKPI(models.Model):
 
     
 class BusinessObjectiveInitiative(models.Model):
-    """Captures how a Business Initiative contributes to a Business Objective."""
+    """This is a through model that captures how a Business Initiative contributes to a Business Objective."""
     business_objective = models.ForeignKey(
         'BusinessObjective', on_delete=models.CASCADE
     )
@@ -413,19 +414,9 @@ class CustomerObjective(TimeStampedModel):
         verbose_name_plural = 'Customer Objectives'
 
 class CustomerObjectiveProductInitiative(models.Model):
-    customer_objective = models.ForeignKey("CustomerObjective", on_delete=models.CASCADE)
-    product_initiative = models.ForeignKey("ProductInitiative", on_delete=models.CASCADE)
-    
-    # contribution_type = models.CharField(
-    #     max_length=50,
-    #     choices=[
-    #         ("discovery", "Discovery"),
-    #         ("conversion", "Conversion"),
-    #         ("retention", "Retention"),
-    #         ("satisfaction", "Satisfaction"),
-    #     ],
-    #     default="discovery"
-    # )
+    """Through model linking CustomerObjective and ProductInitiative with metadata."""
+    customer_objective = models.ForeignKey("CustomerObjective", on_delete=models.CASCADE, related_name='customer_objective_product_initiatives')
+    product_initiative = models.ForeignKey("ProductInitiative", on_delete=models.CASCADE, related_name='customer_objective_product_initiatives')
 
     contribution_type = models.ForeignKey(
         ContributionType,
@@ -499,7 +490,7 @@ class Roadmap(TimeStampedModel):
 
 class RoadmapEntry(models.Model):
     """
-    Defines how a specific ProductInitiative is represented in a Roadmap.
+    Through model that defines how a specific ProductInitiative is represented in a Roadmap.
     """
     roadmap = models.ForeignKey(Roadmap, on_delete=models.CASCADE, related_name="roadmap_entries")
     product_initiative = models.ForeignKey(

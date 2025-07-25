@@ -10,7 +10,7 @@ from .models import ProductInitiative
 from .models import CustomerObjectiveProductInitiative
 from .models import RoadmapEntry
 from .models import BusinessInitiative
-from .models import BusinessKPI
+from .models import BusinessKPI, ProductKPI, ProductInitiativeKPI
 from .models import BusinessObjective
 from .models import BusinessInitiativeProductInitiative
 
@@ -61,18 +61,24 @@ class CustomerObjectiveInline(admin.TabularInline):
     verbose_name = "Customer Objective Initiative"
     verbose_name_plural = "Customer Objective Initiatives"
 
-class businessInitiativeInline(admin.TabularInline):
-    model = BusinessInitiative
-    extra = 1
-    verbose_name = "Business Initiative"
-    verbose_name_plural = "Business Initiatives"
-
 
 class BusinessinitiativeProductInitiativeInline(admin.TabularInline):
     model = BusinessInitiativeProductInitiative
     extra = 1
     verbose_name = "Business Initiative Product Initiative"
     verbose_name_plural = "Business Initiative Product Initiatives"
+
+@admin.register(ProductKPI)
+class ProductKPIAdmin(admin.ModelAdmin):
+    list_display = ("name", "description", "created_at")
+    search_fields = ("name",)
+   
+
+class ProductKPIInline(admin.TabularInline):
+    model = ProductInitiativeKPI
+    extra = 1
+    verbose_name = "Product Initiative KPI"
+    verbose_name_plural = "Product Initiative KPIs"
 
 @admin.register(ProductInitiative)
 class ProductInitiativeAdmin(admin.ModelAdmin):
@@ -82,7 +88,8 @@ class ProductInitiativeAdmin(admin.ModelAdmin):
 
     # ✅ Correct way to manage related through-model
     inlines = [CustomerObjectiveInline, 
-               BusinessinitiativeProductInitiativeInline]
+               BusinessinitiativeProductInitiativeInline, 
+               ProductKPIInline]
 
 
 @admin.register(RoadmapEntry)
@@ -97,14 +104,12 @@ class RoadmapEntryAdmin(admin.ModelAdmin):
         return queryset.select_related('roadmap', 'product_initiative')
     
 
-
-
 @admin.register(BusinessInitiative)
 class BusinessInitiativeAdmin(admin.ModelAdmin):
     list_display = ("title", "description", "created_at")
     search_fields = ("title",)
-    #list_filter = ("created_at",)
-
+    list_filter = ("status", "organization")
+    inlines = [BusinessinitiativeProductInitiativeInline]
 
 
 @admin.register(BusinessKPI)
@@ -112,3 +117,4 @@ class BusinessKPIAdmin(admin.ModelAdmin):
     list_display = ("name", "description", "created_at")
     search_fields = ("name",)
     #list_filter = ("created_at",)
+
