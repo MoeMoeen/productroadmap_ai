@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import ProductKPI, ProductInitiativeKPI, ProductInitiative
 from .models import BusinessInitiative, CustomerObjective, BusinessInitiativeProductInitiative, CustomerObjectiveProductInitiative
 from .models import CustomerSegment
+from .models import BusinessObjective
 
 
 class CustomerObjectiveSummarySerializer(serializers.ModelSerializer):
@@ -130,10 +131,27 @@ class CustomerObjectiveProductInitiativeSerializer(serializers.ModelSerializer):
         from .serializers import ProductInitiativeSerializer
         return ProductInitiativeSerializer(obj.product_initiative, read_only=True).data if obj.product_initiative else None
 
+
+class BusinessObjectiveSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BusinessObjective
+        fields = [
+            'id',
+            'title',
+            'description',
+            'start_date',
+            'deadline',
+            'priority',
+            'organization',
+            'created_by',
+        ]
+        read_only_fields = ['id', 'created_by', 'organization']
+
 class ProductInitiativeSerializer(serializers.ModelSerializer):
     product_kpis = ProductInitiativeKPISerializer(many=True, read_only=True, source='product_initiative_kpis')
     business_initiatives = BusinessInitiativeSerializer(read_only=True, many=True)
     customer_objectives = CustomerObjectiveSummarySerializer(read_only=True, many=True)
+    business_objectives = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductInitiative
@@ -149,8 +167,17 @@ class ProductInitiativeSerializer(serializers.ModelSerializer):
             'product_kpis',
             'business_initiatives',
             'customer_objectives',
+            'business_objectives',
         ]
         read_only_fields = ['id', 'owner', 'organization']
+
+    def get_business_objectives(self, obj):
+        # business_objectives = obj.business_initiatives.values_list('business_objective', flat=True)
+        business_objectives = set()
+        for initiative in obj.business_initiatives.all():
+            for objective in initiative.business_objectives.all():
+                business_objectives.add(objective)
+        return BusinessObjectiveSerializer(business_objectives, many=True, read_only=True).data if business_objectives else []
 
 
 
