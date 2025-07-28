@@ -139,7 +139,6 @@ class BusinessObjectiveSerializer(serializers.ModelSerializer):
             'id',
             'title',
             'description',
-            'start_date',
             'deadline',
             'priority',
             'organization',
@@ -170,6 +169,13 @@ class ProductInitiativeSerializer(serializers.ModelSerializer):
             'business_objectives',
         ]
         read_only_fields = ['id', 'owner', 'organization']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        organization = getattr(user, 'organization', None)
+        validated_data['owner'] = user
+        validated_data['organization'] = organization
+        return super().create(validated_data)
 
     def get_business_objectives(self, obj):
         # business_objectives = obj.business_initiatives.values_list('business_objective', flat=True)

@@ -46,5 +46,5 @@ class ProductInitiativeViewSet(ModelViewSet):
         'owner',
         'organization',
         'product_initiative_kpis',
-        'business_initiatives__business_objective',
+        'business_initiatives__business_objectives',
     )

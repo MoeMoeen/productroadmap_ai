@@ -14,9 +14,15 @@ from .models import BusinessKPI, ProductKPI, ProductInitiativeKPI
 from .models import BusinessObjective
 from .models import BusinessInitiativeProductInitiative
 
+
+@admin.register(BusinessObjective)
+class BusinessObjectiveAdmin(admin.ModelAdmin):
+    list_display = ("title", "description", "created_at")
+    search_fields = ("title", "description")
+
 @admin.register(BusinessObjectiveInitiative)
 class BusinessObjectiveInitiativeAdmin(admin.ModelAdmin):
-    list_display = ("contribution_type", "business_objective")
+    list_display = ("business_objective", "business_initiative", "priority")
     # search_fields = ("contribution_type__name")
     # list_filter = ("contribution_type")
 
@@ -109,7 +115,7 @@ class BusinessInitiativeAdmin(admin.ModelAdmin):
     list_display = ("title", "description", "created_at")
     search_fields = ("title",)
     list_filter = ("status", "organization")
-    inlines = [BusinessinitiativeProductInitiativeInline]
+    # inlines = [BusinessinitiativeProductInitiativeInline]
 
 
 @admin.register(BusinessKPI)
