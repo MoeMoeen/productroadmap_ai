@@ -147,7 +147,7 @@ class BusinessObjectiveSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_by', 'organization']
 
 class ProductInitiativeSerializer(serializers.ModelSerializer):
-    product_kpis = ProductInitiativeKPISerializer(many=True, read_only=True, source='product_initiative_kpis')
+    product_kpis = ProductInitiativeKPISerializer(many=True, required=False, source='product_initiative_kpis')
     business_initiatives = BusinessInitiativeSerializer(read_only=True, many=True)
     customer_objectives = CustomerObjectiveSummarySerializer(read_only=True, many=True)
     business_objectives = serializers.SerializerMethodField()
