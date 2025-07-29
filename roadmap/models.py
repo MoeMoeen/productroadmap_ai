@@ -105,6 +105,22 @@ class ProductInitiativeKPI(models.Model):
     )
     note = models.TextField(blank=True)
 
+    organization = models.ForeignKey(
+        Organization, 
+        on_delete=models.SET_NULL,
+        related_name='product_initiative_kpis',
+        null=True,
+        blank=True
+    )
+
+    owner = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL,
+        related_name='owned_product_initiative_kpis',
+        null=True,
+        blank=True
+    )
+
     def __str__(self):
         return f"{self.product_initiative.title} - {self.product_kpi.name}"
 

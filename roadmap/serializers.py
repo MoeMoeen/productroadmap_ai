@@ -27,19 +27,40 @@ class ProductKPISerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_by', 'organization']
 
 class ProductInitiativeKPISerializer(serializers.ModelSerializer):
-    product_kpi = ProductKPISerializer(read_only=True)
-    
+    product_kpi = ProductKPISerializer(read_only=True) # just for experimination purposes I decided to use read_only=True and not PrimaryKeyRelatedField
+    product_kpi_id = serializers.PrimaryKeyRelatedField(
+        source='product_kpi',
+        queryset=ProductKPI.objects.all(),
+        write_only=True
+    ) # this is for post/patch requests to set the product_kpi
+    product_initiative = serializers.PrimaryKeyRelatedField(queryset=ProductInitiative.objects.all()) # Just for experimentation purposes I decided to use PrimaryKeyRelatedField
+
     class Meta:
         model = ProductInitiativeKPI
         fields = [
             'id',
             'product_kpi',
+            'product_kpi_id',
+            'product_initiative',
             'target_value',
             # 'current_value',
             'weight',
             'note',
+            'organization',
+            'owner',
         ]
-        read_only_fields = ['id',]
+        read_only_fields = ['id', 'owner', 'organization']
+
+    def create(self, validated_data):
+        """
+        Create a new ProductInitiativeKPI instance. Overrides the create method to set the owner and organization.
+        """
+        user = self.context['request'].user
+        organization = getattr(user, 'organization', None)
+        validated_data['owner'] = user
+        validated_data['organization'] = organization
+        return super().create(validated_data)
+
 
 class BusinessInitiativeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -147,7 +168,7 @@ class BusinessObjectiveSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_by', 'organization']
 
 class ProductInitiativeSerializer(serializers.ModelSerializer):
-    product_kpis = ProductInitiativeKPISerializer(many=True, required=False, source='product_initiative_kpis')
+    product_kpis = ProductInitiativeKPISerializer(many=True, read_only=True, source='product_initiative_kpis')
     business_initiatives = BusinessInitiativeSerializer(read_only=True, many=True)
     customer_objectives = CustomerObjectiveSummarySerializer(read_only=True, many=True)
     business_objectives = serializers.SerializerMethodField()
