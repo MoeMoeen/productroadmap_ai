@@ -14,7 +14,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 
 from ..models import BrainRun, BrainRunEvent
-from ..langgraph_flow.week1_workflow import run_simple_workflow, create_ai_job_workflow
+from ..langgraph_flow.langgraph_workflow import ProductRoadmapGraph, create_ai_job_workflow
 from ..serializers import BrainRunSerializer
 
 logger = logging.getLogger(__name__)
@@ -88,8 +88,11 @@ class StartAIJobView(APIView):
             
             # Start processing (for now, just run perception layer)
             try:
-                # Run the simplified workflow
-                final_state = run_simple_workflow(run, initial_state)
+                # Create the workflow graph
+                workflow_graph = ProductRoadmapGraph()
+                
+                # Run the workflow
+                final_state = workflow_graph.run_workflow(run, initial_state)
                 
                 # Mark run as completed
                 run.status = 'completed'

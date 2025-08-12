@@ -21,6 +21,7 @@ class ValidationResult(BaseModel):
     errors: List[str] = []
     warnings: List[str] = []
     details: Dict[str, Any] = {}
+    processing_method: str = "traditional"  # traditional, hybrid_llm, llm_fallback
 
 
 class ParsedDocument(BaseModel):

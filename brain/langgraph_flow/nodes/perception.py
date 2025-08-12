@@ -97,9 +97,19 @@ def _process_uploaded_files_hybrid(run: BrainRun, file_paths: list[str]) -> list
     if not validation_result.is_valid:
         raise DocumentProcessingError(f"File validation failed: {'; '.join(validation_result.errors)}")
     
-    # Initialize hybrid processor
-    anthropic_key = os.getenv('ANTHROPIC_API_KEY')
-    openai_key = os.getenv('OPENAI_API_KEY')
+    # Initialize hybrid processor with proper environment loading
+    from decouple import config
+    from typing import Optional
+    
+    try:
+        anthropic_key_raw = str(config('ANTHROPIC_API_KEY', default=''))
+        openai_key_raw = str(config('OPENAI_API_KEY', default=''))
+        # Convert empty strings to None
+        anthropic_key: Optional[str] = anthropic_key_raw if anthropic_key_raw else None
+        openai_key: Optional[str] = openai_key_raw if openai_key_raw else None
+    except Exception:
+        anthropic_key = None
+        openai_key = None
     
     if anthropic_key or openai_key:
         processor = LLMDocumentProcessor(

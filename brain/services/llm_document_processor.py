@@ -300,6 +300,7 @@ Respond with valid JSON only.
             quality_score=min(original_doc.validation_result.quality_score + 0.1, 1.0),  # Slight boost
             errors=original_doc.validation_result.errors,
             warnings=original_doc.validation_result.warnings,
+            processing_method="hybrid_llm_enhanced",
             details={
                 **original_doc.validation_result.details,
                 "llm_enhancement": enhancement,
@@ -343,6 +344,7 @@ Respond with valid JSON only.
             quality_score=confidence,
             errors=[] if confidence > 0.5 else ["Traditional parsing failed, using LLM fallback"],
             warnings=["LLM fallback used - results may be less reliable"],
+            processing_method="llm_fallback",
             details={
                 "llm_fallback": True,
                 "llm_analysis": analysis,
@@ -381,6 +383,7 @@ Respond with valid JSON only.
             quality_score=0.0,
             errors=[f"Processing failed: {error_message}"],
             warnings=[],
+            processing_method="failed",
             details={"processing_failed": True, "error_message": error_message}
         )
         
