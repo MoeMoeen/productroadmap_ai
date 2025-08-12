@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from .models import ProductKPI, ProductInitiativeKPI, ProductInitiative
 from .models import BusinessInitiative, CustomerObjective, BusinessInitiativeProductInitiative, CustomerObjectiveProductInitiative
-from .models import CustomerSegment
-from .models import BusinessObjective
+from .models import CustomerSegment, BusinessKPI
+from .models import BusinessObjective, Roadmap, RoadmapEntry
 
 
 class CustomerObjectiveSummarySerializer(serializers.ModelSerializer):
@@ -205,6 +205,87 @@ class ProductInitiativeSerializer(serializers.ModelSerializer):
             for objective in initiative.business_objectives.all():
                 business_objectives.add(objective)
         return BusinessObjectiveSerializer(business_objectives, many=True, read_only=True).data if business_objectives else []
+
+
+class BusinessKPISerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BusinessKPI
+        fields = [
+            'id',
+            'name',
+            'description',
+            'target_value',
+            'current_value',
+            'unit',
+            'priority',
+            'organization',
+            'created_by',
+        ]
+        read_only_fields = ['id', 'created_by', 'organization']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        organization = getattr(user, 'organization', None)
+        validated_data['created_by'] = user
+        validated_data['organization'] = organization
+        return super().create(validated_data)
+
+
+class RoadmapSerializer(serializers.ModelSerializer):
+    product_initiatives = ProductInitiativeSerializer(read_only=True, many=True)
+
+    class Meta:
+        model = Roadmap
+        fields = [
+            'id',
+            'name',
+            'description',
+            'start_date',
+            'end_date',
+            'prioritization_logic',
+            'time_horizon',
+            'is_active',
+            'organization',
+            'created_by',
+            'product_initiatives',
+        ]
+        read_only_fields = ['id', 'created_by', 'organization']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        organization = getattr(user, 'organization', None)
+        validated_data['created_by'] = user
+        validated_data['organization'] = organization
+        return super().create(validated_data)
+
+
+class RoadmapEntrySerializer(serializers.ModelSerializer):
+    roadmap = RoadmapSerializer(read_only=True)
+    roadmap_id = serializers.PrimaryKeyRelatedField(
+        source='roadmap',
+        queryset=Roadmap.objects.all(),
+        write_only=True
+    )
+    product_initiative = ProductInitiativeSerializer(read_only=True)
+    product_initiative_id = serializers.PrimaryKeyRelatedField(
+        source='product_initiative',
+        queryset=ProductInitiative.objects.all(),
+        write_only=True
+    )
+
+    class Meta:
+        model = RoadmapEntry
+        fields = [
+            'id',
+            'roadmap',
+            'roadmap_id',
+            'product_initiative',
+            'product_initiative_id',
+            'priority_score',
+            'priority_rank',
+            'note',
+        ]
+        read_only_fields = ['id']
 
 
 
