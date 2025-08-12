@@ -1,17 +1,23 @@
 from django.core.management.base import BaseCommand
 from pathlib import Path
 
-# ✅ Import from schema.py inside langgraph_flow
+# Import from correct location after file renaming
 from brain.langgraph_flow.schema import IngestionInput, GraphState
-
-# ✅ Import the parse_documents_node from nodes folder inside langgraph_flow
-from brain.langgraph_flow.nodes.parse_documents import parse_documents_node
+from brain.langgraph_flow.nodes.perception import parse_documents_node
+from brain.models import BrainRun
 
 
 class Command(BaseCommand):
     help = "Smoke test for parse_documents node"
 
     def handle(self, *args, **options):
+        # Create a test BrainRun
+        run = BrainRun.objects.create(
+            status="running",
+            organization_id=1,
+            metadata={"test": True}
+        )
+        
         # Build input: one local file + one URL
         input_payload = IngestionInput(
             org_id=1,
@@ -20,16 +26,26 @@ class Command(BaseCommand):
             links=["https://example.com/"]
         )
 
-        # Create initial graph state
-        state = GraphState(input=input_payload)
+        # Create initial graph state with required fields
+        state = GraphState(
+            org_id=1,
+            user_id=1,
+            uploaded_files=[str(Path("/tmp/brain_smoke_test.txt"))],
+            links=["https://example.com/"],
+            framework="RICE",
+            input=input_payload
+        )
 
         # Run the parse_documents node
-        out_state = parse_documents_node(state)
+        out_state = parse_documents_node(run, state)
 
         # Show some debug output
-        docs = out_state.raw_docs or []
+        docs = out_state.parsed_documents or []
         self.stdout.write(f"✅ parse_documents produced {len(docs)} documents")
 
-        for i, d in enumerate(docs[:3], 1):
-            text_preview = (d[:120] + "...") if len(d) > 120 else d
-            self.stdout.write(f"{i}. {text_preview}")
+        for i, doc in enumerate(docs[:3], 1):
+            content_preview = (doc.content[:120] + "...") if len(doc.content) > 120 else doc.content
+            self.stdout.write(f"{i}. {doc.file_path}: {content_preview}")
+            
+        # Clean up test run
+        run.delete()

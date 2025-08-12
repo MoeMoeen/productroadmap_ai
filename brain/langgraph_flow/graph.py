@@ -1,22 +1,29 @@
 # brain/langgraph_flow/graph.py
 from typing import Dict, Any
-from ..langgraph_flow.schema import GraphState
-from ..langgraph_flow.nodes.parse_documents import parse_documents_node
+from .schema import GraphState
+from .nodes.perception import parse_documents_node
+from ..models import BrainRun
 
-# For Step 1A we won't bring in langgraph yet; just call the node directly
-# Later (Step 1C), we’ll wrap this in a LangGraph StateGraph.
-
+# Simple wrapper for backward compatibility
 def run_parse_documents(files=None, urls=None, approvals=None, metadata=None) -> Dict[str, Any]:
-    state = GraphState(
-        files=files or [],
-        urls=urls or [],
-        approvals=approvals or {},
+    # Create a temporary run for legacy compatibility
+    run = BrainRun(
+        status="running", 
+        organization_id=1,
         metadata=metadata or {}
     )
-    node_out = parse_documents_node(state)
-    # Apply updates to state (the simplest “reducer”)
-    for k, v in node_out.updates.items():
-        setattr(state, k, v)
-    # Attach node note for debugging
-    state.metadata["parse_documents_note"] = node_out.notes
-    return state.model_dump()
+    
+    state = GraphState(
+        org_id=1,
+        user_id=1,
+        uploaded_files=files or [],
+        links=urls or [],
+        framework="RICE",
+        product_context="",
+        metadata=metadata or {}
+    )
+    
+    # Run the node
+    result_state = parse_documents_node(run, state)
+    
+    return result_state.model_dump()
