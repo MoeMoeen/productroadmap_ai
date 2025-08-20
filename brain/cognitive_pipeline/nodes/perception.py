@@ -2,9 +2,8 @@
 
 from typing import Dict, Any
 import logging
-import os
 
-from ...models import BrainRun
+from ...models.runs import BrainRun
 from ...utils.telemetry import log_info_event, log_validation_event
 from ...services.document_processor import DocumentProcessor, DocumentProcessingError
 from ...services.llm_document_processor import LLMDocumentProcessor

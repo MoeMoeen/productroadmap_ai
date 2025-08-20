@@ -3,6 +3,23 @@
 **Status**: Strategic Direction Change - From Basic AI to Cognitive Architecture  
 **Project**: Product Roadmap AI Platform
 
+# ============================================================
+# ⚠️ INTELLIGENT DESIGN MANDATE — NO RULE-BASED FALLBACKS ⚠️
+#
+# 🧠 This system MUST default to LLM-powered, adaptive, non-rigid design.
+# 🧠 NO hardcoded, rule-based, if/else logic should be introduced unless explicitly authorized.
+# 🧠 All decisions — memory routing, validation, prioritization, correction — must prefer:
+#     - Conversational, LLM-interpretable logic
+#     - Context-aware reasoning using memory and world state
+#     - Prompt-injected intent classification and decisioning
+#
+# ❌ NO RIGID RULES
+# ✅ YES TO INTELLIGENT, LEARNABLE, LLM-DRIVEN BEHAVIOR
+#
+# 🛡️ Use this as a gatekeeper principle before committing any design or logic pattern.
+# ============================================================
+
+
 ## Strategic Decision: Cognitive AI Architecture
 
 ### **Context & Rationale**
@@ -267,3 +284,34 @@ This Cognitive AI architecture represents a strategic shift towards building gen
 The layered approach ensures quality, maintainability, and the ability to handle the intellectual complexity that business stakeholders expect from a strategic planning tool.
 
 **Ready to proceed with Phase 1: Perception Layer implementation.**
+
+# ============================================================
+# ⚠️ INTELLIGENT DESIGN MANDATE — NO RULE-BASED FALLBACKS ⚠️
+#
+# 🧠 This system MUST default to LLM-powered, adaptive, non-rigid design.
+# 🧠 NO hardcoded, rule-based, if/else logic should be introduced unless explicitly authorized.
+# 🧠 All decisions — memory routing, validation, prioritization, correction — must prefer:
+#     - Conversational, LLM-interpretable logic
+#     - Context-aware reasoning using memory and world state
+#     - Prompt-injected intent classification and decisioning
+#
+# ❌ NO RIGID RULES
+# ✅ YES TO INTELLIGENT, LEARNABLE, LLM-DRIVEN BEHAVIOR
+#
+# 🛡️ Use this as a gatekeeper principle before committing any design or logic pattern.
+# ============================================================
+
+Notes:
+
+LLM-centric design:
+
+1. For all keyword-centred rule based setups (like intent keyword dict, category keyword dict), involve and consult with LLM by asking it to examine and suggest change, improvement, addition to the content of the dict/json or even suggest the right/ideal structure of the dict/json too. def consultllm (context)
+
+Let's say we do this, but then how the outputs of the LLM can be actually affected on the go?  It's like LLM is working as agent dev that is invited to share its opinion in certain areas like above and come back with results/responses/suggestions which can be communicated to the human devs in the form of a PR (pull request), and the human devs can approve or rejct until in later times they'll be auto approved in specific areas in which the agent dev is reliable enough. 
+
+2. always after intent recognition, ask LLM to share its step by step structured approach/strategy to handle the intent. 
+
+3. Shouldn't we have an intent -> actions/tools mapping dictionary to decide what tools/actions are connected to each intent in which order?
+
+4. I think we should let the user decide the level of verbosity of the agent in terms of asking clarifying questions, double confirming, sharing its strategy, double confirming with user, etc. and if the user opts for more verbose agent, then the agent must do these all to ensure it's giving back very accurate human like messages/responses proactively and reactively. 
+

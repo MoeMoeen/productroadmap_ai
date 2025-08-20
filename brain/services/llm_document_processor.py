@@ -22,7 +22,7 @@ from anthropic import Anthropic
 from openai import OpenAI
 
 from .document_processor import DocumentProcessor, DocumentProcessingError
-from ..langgraph_flow.schema import ParsedDocument, DocumentMetadata, ValidationResult
+from brain.models.documents import ParsedDocument, DocumentMetadata, ValidationResult
 
 logger = logging.getLogger(__name__)
 

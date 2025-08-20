@@ -12,7 +12,7 @@ import os
 from typing import Dict, Any
 
 from ..models import BrainRun, BrainRunEvent
-from ..langgraph_flow.langgraph_workflow import ProductRoadmapGraph, create_ai_job_workflow
+from ..langgraph_flow.graph import ProductRoadmapGraph, create_ai_job_workflow
 from ..serializers import BrainRunSerializer
 
 logger = logging.getLogger(__name__)
