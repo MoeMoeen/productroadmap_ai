@@ -1,6 +1,6 @@
-# brain/langgraph_flow/layers/planner_layer.py
+# brain/cognitive_pipeline/layers/planner_layer.py
 
-from brain.langgraph_flow.schema import GraphState
+from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
 from brain.cognitive_pipeline.utils import log_node_io, handle_errors
 

@@ -8,7 +8,7 @@ from ...utils.telemetry import log_info_event, log_validation_event
 from ...services.document_processor import DocumentProcessor, DocumentProcessingError
 from ...services.llm_document_processor import LLMDocumentProcessor
 from ...services.validators import FileValidator
-from ..schema import GraphState, ParsedDocumentSchema
+from ..schema import GraphState, ParsedDocument, DocumentMetadata, ValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ def parse_documents_node(run: BrainRun, state: GraphState) -> GraphState:
         raise
 
 
-def _process_uploaded_files_hybrid(run: BrainRun, file_paths: list[str]) -> list[ParsedDocumentSchema]:
+def _process_uploaded_files_hybrid(run: BrainRun, file_paths: list[str]) -> list[ParsedDocument]:
     """Process uploaded files using hybrid LLM + traditional approach."""
     # Validate file paths first
     validation_result = FileValidator.validate_file_paths(file_paths)
@@ -129,20 +129,26 @@ def _process_uploaded_files_hybrid(run: BrainRun, file_paths: list[str]) -> list
     
     try:
         documents = processor.process_files(file_paths)
-        # Convert to ParsedDocumentSchema if needed
+        # Convert to ParsedDocument if needed
         parsed_documents = []
         for doc in documents:
-            if isinstance(doc, ParsedDocumentSchema):
+            if isinstance(doc, ParsedDocument):
                 parsed_documents.append(doc)
             elif isinstance(doc, dict):
-                parsed_documents.append(ParsedDocumentSchema(**doc))
+                parsed_documents.append(ParsedDocument(**doc))
             else:
                 # Fallback: try to extract fields
-                parsed_documents.append(ParsedDocumentSchema(
-                    id=getattr(doc, 'id', None),
+                parsed_documents.append(ParsedDocument(
+                    file_path=getattr(doc, 'file_path', '') or '',
                     content=getattr(doc, 'content', ''),
-                    metadata=getattr(doc, 'metadata', None),
-                    doc_type=getattr(doc, 'doc_type', None)
+                    metadata=getattr(doc, 'metadata', None) or DocumentMetadata(
+                        file_path=getattr(doc, 'file_path', '') or '',
+                        file_size=getattr(doc, 'file_size', 0) or 0,
+                        file_type=getattr(doc, 'file_type', '') or '',
+                        quality_score=getattr(doc, 'quality_score', 0.0) or 0.0
+                    ),
+                    file_type=getattr(doc, 'file_type', '') or '',
+                    validation_result=getattr(doc, 'validation_result', None) or ValidationResult()
                 ))
         # Log processing statistics
         stats = processor.get_processing_stats()
@@ -157,7 +163,7 @@ def _process_uploaded_files_hybrid(run: BrainRun, file_paths: list[str]) -> list
         raise DocumentProcessingError(f"Hybrid file processing failed: {e}")
 
 
-def _process_links(run: BrainRun, links: list[str]) -> list[ParsedDocumentSchema]:
+def _process_links(run: BrainRun, links: list[str]) -> list[ParsedDocument]:
     """Process web links (enhanced placeholder for Week 1)."""
     log_info_event(run, "parse_documents", "Processing links (enhanced placeholder)", {
         "link_count": len(links),
@@ -169,24 +175,24 @@ def _process_links(run: BrainRun, links: list[str]) -> list[ParsedDocumentSchema
     placeholder_documents = []
     
     for i, link in enumerate(links):
-        placeholder_doc = ParsedDocumentSchema(
-            id=f"url_{i}",
+        placeholder_doc = ParsedDocument(
+            file_path=link,
             content=f"[ENHANCED PLACEHOLDER] URL content from: {link}\n\nThis will be processed with LLM-based web scraping in Week 2.",
-            metadata={
-                "file_path": link,
-                "file_type": "url",
-                "placeholder": True,
-                "llm_ready": True,
-                "enhancement_planned": "Week 2"
-            },
-            doc_type="url"
+            metadata=DocumentMetadata(
+                file_path=link,
+                file_size=0,
+                file_type="url",
+                quality_score=0.0
+            ),
+            file_type="url",
+            validation_result=ValidationResult()
         )
         placeholder_documents.append(placeholder_doc)
     
     return placeholder_documents
 
 
-def _validate_processing_results(run: BrainRun, documents: list[ParsedDocumentSchema]) -> Dict[str, Any]:
+def _validate_processing_results(run: BrainRun, documents: list[ParsedDocument]) -> Dict[str, Any]:
     """Validate the overall processing results with hybrid metrics."""
     if not documents:
         validation_summary = {
@@ -206,7 +212,7 @@ def _validate_processing_results(run: BrainRun, documents: list[ParsedDocumentSc
             "quality_score": None,
             "total_content_length": sum(len(doc.content) for doc in documents),
             "total_tables": None,
-            "file_types": list(set(doc.metadata.get("file_type", "unknown") for doc in documents if doc.metadata)),
+            "file_types": list(set(getattr(doc.metadata, "file_type", "unknown") for doc in documents if doc.metadata)),
             "hybrid_processing": True,
             "llm_enhanced_count": None,
             "llm_fallback_count": None,

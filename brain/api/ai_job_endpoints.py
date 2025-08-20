@@ -14,8 +14,8 @@ from rest_framework import status
 from rest_framework.views import APIView
 
 from ..models import BrainRun, BrainRunEvent
-from ..langgraph_flow.graph import ProductRoadmapGraph, create_ai_job_workflow
 from ..serializers import BrainRunSerializer
+from brain.cognitive_pipeline.graph import create_ai_job_workflow, ProductRoadmapGraph
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,6 @@ class StartAIJobView(APIView):
             
             # Get organization (for multi-tenant support)
             organization = getattr(request.user, 'organization', None)
-            
             # Create BrainRun
             run = BrainRun.objects.create(
                 status='running',
@@ -90,14 +89,11 @@ class StartAIJobView(APIView):
             try:
                 # Create the workflow graph
                 workflow_graph = ProductRoadmapGraph()
-                
                 # Run the workflow
                 final_state = workflow_graph.run_workflow(run, initial_state)
-                
                 # Mark run as completed
                 run.status = 'completed'
                 run.save()
-                
                 # Return response with job details
                 return Response({
                     'job_id': run.id,
@@ -105,7 +101,7 @@ class StartAIJobView(APIView):
                     'message': 'AI job completed successfully',
                     'results': {
                         'documents_processed': len(final_state.parsed_documents or []),
-                        'successful_documents': sum(1 for doc in (final_state.parsed_documents or []) if doc.validation_result.is_valid),
+                        'successful_documents': sum(1 for doc in (final_state.parsed_documents or []) if getattr(doc.validation_result, 'is_valid', False)),
                         'framework': framework,
                         'processing_summary': self._create_processing_summary(final_state)
                     }
