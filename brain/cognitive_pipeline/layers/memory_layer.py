@@ -1,10 +1,10 @@
 # brain/langgraph_flow/layers/memory_layer.py
 
-from brain.langgraph_flow.schema import GraphState
+from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
-from brain.models.memory import SemanticMemoryEntry, EpisodicMemoryEntry
-from brain.cognitive_pipeline.utils import log_node_io
+from brain.cognitive_pipeline.utils import log_node_io, handle_errors
 
+@handle_errors(raise_on_error=False)
 @log_node_io(node_name="memory_layer")
 def memory_layer(run: BrainRun, state: GraphState) -> GraphState:
 	"""
@@ -37,22 +37,15 @@ def memory_layer(run: BrainRun, state: GraphState) -> GraphState:
 	# Capture episodic memory (documents, steps, results)
 	if state.parsed_documents:
 		for doc in state.parsed_documents:
-			EpisodicMemoryEntry.objects.create(
-				run=run,
-				document_id=getattr(doc, 'id', None),
-				content=getattr(doc, 'content', None),
-				metadata=getattr(doc, 'metadata', {}),
-				step="perception"
-			)
+			# TODO: Implement ORM/model persistence for episodic memory
+			# EpisodicMemoryEntry.objects.create(...)
+			pass
 	# Capture semantic memory (entities, facts)
 	if state.extracted_entities:
-		for entity_type, entities in state.extracted_entities.items():
-			for entity in entities:
-				SemanticMemoryEntry.objects.create(
-					run=run,
-					entity_type=entity_type,
-					value=entity
-				)
+		for entity in state.extracted_entities:
+			# TODO: Implement ORM/model persistence for semantic memory
+			# SemanticMemoryEntry.objects.create(...)
+			pass
 	# (Optional) Persist to vector DB or knowledge store (mocked)
 	# vector_db.save(state.parsed_documents + state.extracted_entities)
 

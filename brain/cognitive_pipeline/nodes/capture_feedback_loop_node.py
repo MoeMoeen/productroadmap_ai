@@ -1,10 +1,10 @@
 # brain/langgraph_flow/nodes/capture_feedback_loop_node.py
 
-from brain.langgraph_flow.schema import GraphState
+from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
-from brain.langgraph_flow.utils import log_node_io
-from brain.cognitive_pipeline.utils import log_node_io
+from brain.cognitive_pipeline.utils import log_node_io, handle_errors
 
+@handle_errors(raise_on_error=False)
 @log_node_io(node_name="capture_feedback_loop_node")
 def capture_feedback_loop_node(run: BrainRun, state: GraphState) -> GraphState:
     """

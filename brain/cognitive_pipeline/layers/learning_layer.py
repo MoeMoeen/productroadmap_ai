@@ -1,9 +1,10 @@
 # brain/langgraph_flow/layers/learning_layer.py
 
-from brain.langgraph_flow.schema import GraphState
+from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
-from brain.cognitive_pipeline.utils import log_node_io
+from brain.cognitive_pipeline.utils import log_node_io, handle_errors
 
+@handle_errors(raise_on_error=False)
 @log_node_io(node_name="learning_layer")
 def learning_layer(run: BrainRun, state: GraphState) -> GraphState:
 	"""
@@ -32,5 +33,3 @@ def learning_layer(run: BrainRun, state: GraphState) -> GraphState:
 	print("[TODO] Capture user feedback and update learning signals")
 	# state.learning_signals = ...
 	return state
-# Learning Layer
-# TODO: Implement learning layer logic

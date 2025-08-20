@@ -1,11 +1,25 @@
-
-
-from pydantic import BaseModel
-from typing import List, Optional, Any, Dict
+# brain/cognitive_pipeline/schema.py
 
 from pydantic import BaseModel
-from typing import List, Optional, Any, Dict, Literal
-from langchain_core.documents import Document
+from typing import List, Optional, Literal, Any, Dict
+# Business Initiative
+class BusinessInitiative(BaseModel):
+    """A strategic initiative at the business level."""
+    id: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    owner: Optional[str] = None
+    related_objectives: Optional[List[str]] = None
+    # Add more business-initiative-specific fields as needed
+
+
+
+# --- Stubs for missing types (to be replaced with real implementations) ---
+class ValidationResult(BaseModel):
+    pass
+
+class Roadmap(BaseModel):
+    pass
 class BusinessProfile(BaseModel):
     """
     Structured business profile extracted from documents.
@@ -58,13 +72,28 @@ class CustomerObjective(BaseModel):
     segment: Optional[str] = None
     # Add more fields as needed
 
-# KPI
-class KPI(BaseModel):
+
+# Product KPI
+class ProductKPI(BaseModel):
+    """Key Performance Indicator specific to product outcomes."""
     id: Optional[str] = None
     name: str
     value: Optional[Any] = None
     unit: Optional[str] = None
-    # Add more fields as needed
+    product_id: Optional[str] = None
+    description: Optional[str] = None
+    # Add more product-specific KPI fields as needed
+
+# Business KPI
+class BusinessKPI(BaseModel):
+    """Key Performance Indicator for overall business performance."""
+    id: Optional[str] = None
+    name: str
+    value: Optional[Any] = None
+    unit: Optional[str] = None
+    department: Optional[str] = None
+    description: Optional[str] = None
+    # Add more business-specific KPI fields as needed
 
 # Product Initiative (central entity)
 class ProductInitiative(BaseModel):
@@ -72,32 +101,32 @@ class ProductInitiative(BaseModel):
     name: str
     description: Optional[str] = None
     related_objectives: Optional[List[str]] = None
+
     type: Optional[str] = "product"  # Always specify type
+    timeline: Optional[dict] = None
     # Add more fields as needed
 
 
-# Roadmap
-class Roadmap(BaseModel):
-    product_initiatives: List[ProductInitiative]
-    timeline: Optional[Dict[str, Any]] = None
-    # Add more fields as needed
+# Unified ParsedDocument model for pipeline and persistence
+class DocumentMetadata(BaseModel):
+    """Metadata for processed documents"""
+    file_path: str
+    file_size: int
+    file_type: str
+    quality_score: float  # 0.0 to 1.0
+    errors: List[str] = []
+    warnings: List[str] = []
+    details: dict = {}
+    processing_method: str = "traditional"  # traditional, hybrid_llm, llm_fallback
 
-# Stub: ValidationResult
-class ValidationResult(BaseModel):
-    step: str
-    passed: bool
-    issues: Optional[List[str]] = None
-    severity: Optional[str] = None  # e.g., "low", "medium", "critical"
-    score: Optional[float] = None   # 0 to 1 confidence level
-
-
-# Pydantic-compatible ParsedDocument for pipeline use
-class ParsedDocumentSchema(BaseModel):
-    id: Optional[str] = None
+class ParsedDocument(BaseModel):
+    """Processed document with extracted content and metadata"""
+    file_path: str
+    file_type: str
     content: str
-    metadata: Optional[Dict[str, Any]] = None
-    doc_type: Optional[str] = None
-    # Add more fields as needed
+    tables: List[dict] = []
+    metadata: DocumentMetadata
+    validation_result: 'ValidationResult'
 
 
 class IngestionInput(BaseModel):
@@ -134,12 +163,14 @@ class GraphState(BaseModel):
     product_context: str = ""
     
     # Node outputs
-    parsed_documents: Optional[List[ParsedDocumentSchema]] = None  # After parse_documents_node
+    parsed_documents: Optional[List[ParsedDocument]] = None  # After parse_documents_node
     business_objectives: Optional[List[BusinessObjective]] = None
     customer_objectives: Optional[List[CustomerObjective]] = None
-    kpis: Optional[List[KPI]] = None
+    product_kpis: Optional[List[ProductKPI]] = None
+    business_kpis: Optional[List[BusinessKPI]] = None
     extracted_entities: Optional[List[ExtractedEntity]] = None  # After extract_entities_node
     enhanced_product_initiatives: Optional[List[ProductInitiative]] = None  # After enhance_initiatives_node
+    business_initiatives: Optional[List[BusinessInitiative]] = None  # After business_understanding_layer
     generated_roadmap: Optional[Roadmap] = None  # After generate_roadmap_node
     validation_results: Optional[List[ValidationResult]] = None
     

@@ -360,3 +360,89 @@ Here’s a focused checklist for Step 1: Establish Core Data Contracts and Utili
 
 ---
 
+Here’s an audit of your current **Core Data Contracts and Utilities** (Step 1):
+
+---
+
+### 1. **Schemas (schema.py)**
+- **GraphState**: Present, with all major fields (intent, parsed_documents, business_profile, step_strategy, extracted_entities, generated_roadmap, etc.).  
+  - ✅ Docstring and type hints present.
+- **ParsedDocumentSchema**: Present, but minimal (id, content, metadata, doc_type).  
+  - ✅ Docstring and type hints present.
+- **BusinessProfile**: Present, covers strategic fields.  
+  - ✅ Docstring and type hints present.
+- **StepStrategy** (PlanForStep): Present, covers all required fields.  
+  - ✅ Docstring and type hints present.
+- **Other shared structures**: ExtractedEntity, BusinessObjective, CustomerObjective, KPI, ProductInitiative, Roadmap, ValidationResult, NodeOutput, IngestionInput — all present with docstrings/type hints.
+
+**Gaps:**  
+- `ParsedDocumentSchema` is minimal and does not match the richer `ParsedDocument` model in documents.py (which includes tables, validation, etc.).  
+- Some docstrings could be more descriptive, but all have at least a basic one.
+
+---
+
+### 2. **Models (`models/`)**
+- **BrainRun** and **BrainRunEvent**: Present in runs.py, full Django ORM models, with docstrings and type hints.
+- **ParsedDocument**: Present in documents.py, rich structure (content, tables, metadata, validation).
+- **SemanticMemoryEntry** and **EpisodicMemoryEntry**: Present in memory.py as stubs, with docstrings.
+- **MemoryRecord**: Present as a stub, with docstring and type hints.
+
+**Gaps:**  
+- `SemanticMemoryEntry` and `EpisodicMemoryEntry` are stubs, not real ORM models yet (but this is noted as TODO).
+- `ParsedDocument` (in documents.py) is richer than `ParsedDocumentSchema` (in schema.py). You should standardize on one and use it everywhere.
+
+---
+
+### 3. **Utilities (utils.py)**
+- **log_node_io**: Present as a stub in utils.py, with a TODO to replace with real logging/telemetry.
+- **Error handling helpers**: Not found in the scanned files, but may exist elsewhere.
+- **LLM/vector DB helpers**: Not found in the scanned files, but may exist elsewhere.
+
+**Gaps:**  
+- Logging utility is a stub, not production-ready.
+- No error handling helpers or LLM/vector DB helpers found in the scanned files.
+
+---
+
+### 4. **Documentation**
+- All schemas and models have at least basic docstrings.
+- Type hints are present.
+- No usage examples found inline or in a separate doc.
+
+---
+
+### 5. **Validation**
+- Schemas and models are imported and used in nodes/layers.
+- No evidence of static type checking (mypy) or schema/model unit tests in the scanned files.
+
+---
+
+## **Summary of Remaining Work for Step 1**
+
+Checklist
+
+1. **Standardize `ParsedDocument`**:  
+   - Decide on a single schema/model for parsed documents (either the rich `ParsedDocument` from documents.py or the minimal `ParsedDocumentSchema` from schema.py).  
+   - Use it everywhere (schema, models, pipeline).
+
+2. **Upgrade Utilities**:  
+   - Replace the stub `log_node_io` with a real logging/telemetry decorator.
+   - Add error handling helpers and LLM/vector DB helpers if needed.
+
+3. **Add Usage Examples**:  
+   - Add example usages for each schema/model (inline or in a separate doc).
+
+4. **Type Checking & Tests**:  
+   - Run mypy/static type checker and fix any issues.
+   - (Optional) Add unit tests for schema/model validation.
+
+5. **Docstring Improvements**:  
+   - Expand docstrings for clarity where needed.
+
+6. **Replace Stubs with Real Logic**:
+    - All stubbed classes, methods, and functions are implemented with real business logic.
+    No remaining TODO, "stub", or placeholder print statements in production code.
+    All pipeline nodes and layers perform their intended function.
+
+
+---
