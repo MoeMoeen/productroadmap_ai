@@ -109,6 +109,7 @@ def _process_uploaded_files_hybrid(run: BrainRun, file_paths: list[str]) -> list
         anthropic_key = None
         openai_key = None
     
+    processor: Any
     if anthropic_key or openai_key:
         processor = LLMDocumentProcessor(
             anthropic_api_key=anthropic_key,

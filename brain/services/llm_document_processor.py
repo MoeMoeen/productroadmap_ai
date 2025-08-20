@@ -27,12 +27,13 @@ from brain.models.documents import ParsedDocument, DocumentMetadata, ValidationR
 logger = logging.getLogger(__name__)
 
 
-class LLMDocumentProcessor:
+class LLMDocumentProcessor(DocumentProcessor):
     """
     Hybrid document processor combining traditional parsing with LLM intelligence.
     """
     
     def __init__(self, anthropic_api_key: Optional[str] = None, openai_api_key: Optional[str] = None):
+        super().__init__()
         self.traditional_processor = DocumentProcessor()
         
         # Initialize LLM clients
@@ -232,13 +233,13 @@ Respond with valid JSON only.
                 return json.loads(content)
             
             elif self.openai_client:
-                response = self.openai_client.chat.completions.create(
+                response = self.openai_client.chat.completions.create(  # type: ignore
                     model="gpt-4",
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=1000
                 )
-                # Handle OpenAI response format with None check
-                message_content = response.choices[0].message.content
+                # OpenAI Python SDK is dynamic; suppress mypy type errors
+                message_content = response.choices[0].message.content  # type: ignore
                 if message_content is None:
                     raise ValueError("OpenAI returned empty response")
                 return json.loads(message_content)
