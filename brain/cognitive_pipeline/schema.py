@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel
 from typing import List, Optional, Literal, Any, Dict
+
+
 # Business Initiative
 class BusinessInitiative(BaseModel):
     """A strategic initiative at the business level."""
@@ -13,13 +15,6 @@ class BusinessInitiative(BaseModel):
     # Add more business-initiative-specific fields as needed
 
 
-
-# --- Stubs for missing types (to be replaced with real implementations) ---
-class ValidationResult(BaseModel):
-    pass
-
-class Roadmap(BaseModel):
-    pass
 class BusinessProfile(BaseModel):
     """
     Structured business profile extracted from documents.
@@ -107,26 +102,12 @@ class ProductInitiative(BaseModel):
     # Add more fields as needed
 
 
-# Unified ParsedDocument model for pipeline and persistence
-class DocumentMetadata(BaseModel):
-    """Metadata for processed documents"""
-    file_path: str
-    file_size: int
-    file_type: str
-    quality_score: float  # 0.0 to 1.0
-    errors: List[str] = []
-    warnings: List[str] = []
-    details: dict = {}
-    processing_method: str = "traditional"  # traditional, hybrid_llm, llm_fallback
-
-class ParsedDocument(BaseModel):
-    """Processed document with extracted content and metadata"""
-    file_path: str
-    file_type: str
-    content: str
-    tables: List[dict] = []
-    metadata: DocumentMetadata
-    validation_result: 'ValidationResult'
+class Roadmap(BaseModel):
+    """
+    Represents a strategic roadmap generated from processed documents and extracted entities.
+    Contains the list of product initiatives and their corresponding entities.
+    """
+    initiatives: List[ProductInitiative] = []
 
 
 class IngestionInput(BaseModel):
@@ -148,6 +129,57 @@ class NodeOutput(BaseModel):
     success: bool
     message: Optional[str] = None
     data: Optional[Any] = None
+
+
+# --------------------------------
+# Memory Serialization Models
+# --------------------------------
+
+class MemoryRecord(BaseModel):
+    """Pydantic model for persistent memory record (for API serialization)."""
+    id: str
+    data: Dict[str, Any]
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+# --------------------------------
+# Document Parsing & Validation
+# --------------------------------
+
+# Unified ParsedDocument model for pipeline and persistence
+class DocumentMetadata(BaseModel):
+    """Metadata for processed documents"""
+    file_path: str
+    file_size: int
+    file_type: str
+    quality_score: float  # 0.0 to 1.0
+    errors: List[str] = []
+    warnings: List[str] = []
+    details: dict = {}
+    processing_method: str = "traditional"  # traditional, hybrid_llm, llm_fallback
+
+class DocumentParsingValidationResult(BaseModel):
+	"""Validation results for document processing"""
+	is_valid: bool
+	quality_score: float  # 0.0 to 1.0
+	errors: List[str] = []
+	warnings: List[str] = []
+	details: Dict[str, Any] = {}
+	processing_method: str = "traditional"  # traditional, hybrid_llm, llm_fallback
+
+class ParsedDocument(BaseModel):
+	"""Processed document with extracted content and metadata"""
+	file_path: str
+	file_type: str
+	content: str
+	tables: List[Dict[str, Any]] = []
+	metadata: DocumentMetadata
+	validation_result: DocumentParsingValidationResult
+
+
+#-----GraphState-----
+
 
 
 class GraphState(BaseModel):
@@ -172,14 +204,11 @@ class GraphState(BaseModel):
     enhanced_product_initiatives: Optional[List[ProductInitiative]] = None  # After enhance_initiatives_node
     business_initiatives: Optional[List[BusinessInitiative]] = None  # After business_understanding_layer
     generated_roadmap: Optional[Roadmap] = None  # After generate_roadmap_node
-    validation_results: Optional[List[ValidationResult]] = None
-    
+    validation_results: Optional[List[DocumentParsingValidationResult]] = None
+
     # Context and metadata
     context: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = {}
-    
-
-
 
     # New fields for cognitive architecture
     business_profile: Optional[BusinessProfile] = None
@@ -190,3 +219,4 @@ class GraphState(BaseModel):
 
     # User goal/intent for dynamic flow control
     intent: Optional[str] = None  # e.g., "generate_full_roadmap", "prioritize_existing"
+

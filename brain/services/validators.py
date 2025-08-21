@@ -5,7 +5,7 @@ import mimetypes
 from typing import List, Dict, Any, Optional
 from django.core.files.uploadedfile import UploadedFile
 
-from brain.models.documents import ValidationResult
+from brain.cognitive_pipeline.schema import DocumentParsingValidationResult
 
 
 class FileValidator:
@@ -31,7 +31,7 @@ class FileValidator:
 	}
     
 	@classmethod
-	def validate_uploaded_files(cls, files: List[UploadedFile]) -> ValidationResult:
+	def validate_uploaded_files(cls, files: List[UploadedFile]) -> DocumentParsingValidationResult:
 		"""
 		Validate a list of uploaded files before processing.
         
@@ -47,7 +47,7 @@ class FileValidator:
         
 		if not files:
 			errors.append("No files provided for validation")
-			return ValidationResult(
+			return DocumentParsingValidationResult(
 				is_valid=False,
 				quality_score=0.0,
 				errors=errors,
@@ -82,7 +82,7 @@ class FileValidator:
 			'file_details': [cls._get_file_details(f) for f in files]
 		})
         
-		return ValidationResult(
+		return DocumentParsingValidationResult(
 			is_valid=is_valid,
 			quality_score=quality_score,
 			errors=errors,
@@ -176,7 +176,7 @@ class FileValidator:
 		}
     
 	@classmethod
-	def validate_file_paths(cls, file_paths: List[str]) -> ValidationResult:
+	def validate_file_paths(cls, file_paths: List[str]) -> DocumentParsingValidationResult:
 		"""
 		Validate a list of file paths for processing.
         
@@ -192,7 +192,7 @@ class FileValidator:
         
 		if not file_paths:
 			errors.append("No file paths provided")
-			return ValidationResult(
+			return DocumentParsingValidationResult(
 				is_valid=False,
 				quality_score=0.0,
 				errors=errors,
@@ -225,7 +225,7 @@ class FileValidator:
 			'paths': file_paths
 		})
         
-		return ValidationResult(
+		return DocumentParsingValidationResult(
 			is_valid=is_valid,
 			quality_score=quality_score,
 			errors=errors,
@@ -288,7 +288,7 @@ class ContentValidator:
 	MIN_QUALITY_SCORE = 0.5  # Minimum quality score to consider valid
     
 	@classmethod
-	def validate_processed_content(cls, content: str, file_type: str) -> ValidationResult:
+	def validate_processed_content(cls, content: str, file_type: str) -> DocumentParsingValidationResult:
 		"""
 		Validate processed document content for quality.
         
@@ -343,7 +343,7 @@ class ContentValidator:
 			'file_type': file_type
 		}
         
-		return ValidationResult(
+		return DocumentParsingValidationResult(
 			is_valid=is_valid,
 			quality_score=quality_score,
 			errors=errors,

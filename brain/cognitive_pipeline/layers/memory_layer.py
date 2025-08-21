@@ -10,45 +10,30 @@ def memory_layer(run: BrainRun, state: GraphState) -> GraphState:
 	"""
 	Cognitive Layer: Memory (Layer 2)
 
-	This layer is responsible for:
-	- Capturing episodic memory (steps, documents, results) for each run
-	- Updating semantic memory (facts, entities, insights)
-	- Persisting to memory models (e.g., SemanticMemoryEntry, EpisodicMemoryEntry)
-	- Optionally, integrating with a vector DB or knowledge store (mocked for now)
-
-	Business Logic Context:
-	- Stores normalized documents and extracted entities for long-term reference
-	- Enables the system to recall past facts, context, and results across runs
-	- Supports downstream reasoning, validation, and learning layers
-
-	Architectural Role:
-	- Acts as the "memory bank" for the cognitive pipeline
-	- Ensures all key information is persisted and available for future steps
-	- May call atomic nodes for granular memory operations
-
-	Usage:
-	- Should be run after the perception layer
-	- Updates persistent storage with new documents and entities
-
-	TODO:
-	- Implement real ORM/model persistence for memory entries
-	- Integrate with vector DB or knowledge store as needed
+	This layer captures episodic and semantic memory for each run and persists them using ORM models.
 	"""
-	# Capture episodic memory (documents, steps, results)
+	from brain.models.memory import EpisodicMemoryEntry, SemanticMemoryEntry
+
+	# Persist episodic memory for each parsed document
 	if state.parsed_documents:
 		for doc in state.parsed_documents:
-			# TODO: Implement ORM/model persistence for episodic memory
-			# EpisodicMemoryEntry.objects.create(...)
-			pass
-	# Capture semantic memory (entities, facts)
+			EpisodicMemoryEntry.objects.create(
+				run=run,
+				event_type="document_parsed",
+				content=doc.content,
+				step="perception_layer"
+			)
+
+	# Persist semantic memory for each extracted entity
 	if state.extracted_entities:
 		for entity in state.extracted_entities:
-			# TODO: Implement ORM/model persistence for semantic memory
-			# SemanticMemoryEntry.objects.create(...)
-			pass
-	# (Optional) Persist to vector DB or knowledge store (mocked)
-	# vector_db.save(state.parsed_documents + state.extracted_entities)
+			SemanticMemoryEntry.objects.create(
+				run=run,
+				entity_type=getattr(entity, 'entity_type', 'unknown'),
+				value=str(entity),
+				step="entity_extraction_layer"
+			)
+
+	# (Optional) Integrate with vector DB or knowledge store here
 
 	return state
-# Memory Layer
-# TODO: Implement memory layer logic

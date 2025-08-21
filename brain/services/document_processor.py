@@ -11,7 +11,7 @@ from docx import Document as DocxDocument
 from openpyxl import load_workbook
 
 # Local imports
-from brain.models.documents import ParsedDocument, DocumentMetadata, ValidationResult
+from brain.schemas.documents import ParsedDocument, DocumentMetadata, ValidationResult
 
 
 class DocumentProcessingError(Exception):

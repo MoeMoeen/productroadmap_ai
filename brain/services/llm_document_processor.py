@@ -22,7 +22,7 @@ from anthropic import Anthropic
 from openai import OpenAI
 
 from .document_processor import DocumentProcessor, DocumentProcessingError
-from brain.models.documents import ParsedDocument, DocumentMetadata, ValidationResult
+from brain.cognitive_pipeline.schema import ParsedDocument, DocumentMetadata, DocumentParsingValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -289,14 +289,11 @@ Respond with valid JSON only.
             file_path=original_doc.metadata.file_path,
             file_size=original_doc.metadata.file_size,
             file_type=original_doc.metadata.file_type,
-            page_count=original_doc.metadata.page_count,
-            table_count=original_doc.metadata.table_count,
-            processing_time_ms=original_doc.metadata.processing_time_ms,
-            extracted_text_length=original_doc.metadata.extracted_text_length
+            quality_score=original_doc.metadata.quality_score if hasattr(original_doc.metadata, "quality_score") else 1.0
         )
         
         # Enhanced validation with LLM insights
-        enhanced_validation = ValidationResult(
+        enhanced_validation = DocumentParsingValidationResult(
             is_valid=original_doc.validation_result.is_valid,
             quality_score=min(original_doc.validation_result.quality_score + 0.1, 1.0),  # Slight boost
             errors=original_doc.validation_result.errors,
@@ -332,15 +329,12 @@ Respond with valid JSON only.
             file_path=file_path,
             file_size=file_path_obj.stat().st_size if file_path_obj.exists() else 0,
             file_type=file_path_obj.suffix.lstrip('.').lower(),
-            page_count=1,
-            table_count=0,
-            processing_time_ms=0,
-            extracted_text_length=len(analysis.get("extracted_content", ""))
+            quality_score=analysis.get("confidence_level", 0.3)
         )
         
         # Create validation result
         confidence = analysis.get("confidence_level", 0.3)
-        validation = ValidationResult(
+        validation = DocumentParsingValidationResult(
             is_valid=confidence > 0.5,
             quality_score=confidence,
             errors=[] if confidence > 0.5 else ["Traditional parsing failed, using LLM fallback"],
@@ -373,13 +367,10 @@ Respond with valid JSON only.
             file_path=file_path,
             file_size=file_path_obj.stat().st_size if file_path_obj.exists() else 0,
             file_type=file_path_obj.suffix.lstrip('.').lower(),
-            page_count=0,
-            table_count=0,
-            processing_time_ms=0,
-            extracted_text_length=0
+            quality_score=0.0
         )
         
-        validation = ValidationResult(
+        validation = DocumentParsingValidationResult(
             is_valid=False,
             quality_score=0.0,
             errors=[f"Processing failed: {error_message}"],

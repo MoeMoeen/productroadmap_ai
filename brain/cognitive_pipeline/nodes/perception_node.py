@@ -8,7 +8,7 @@ from ...utils.telemetry import log_info_event, log_validation_event
 from ...services.document_processor import DocumentProcessor, DocumentProcessingError
 from ...services.llm_document_processor import LLMDocumentProcessor
 from ...services.validators import FileValidator
-from ..schema import GraphState, ParsedDocument, DocumentMetadata, ValidationResult
+from ..schema import GraphState, ParsedDocument, DocumentMetadata, DocumentParsingValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +149,7 @@ def _process_uploaded_files_hybrid(run: BrainRun, file_paths: list[str]) -> list
                         quality_score=getattr(doc, 'quality_score', 0.0) or 0.0
                     ),
                     file_type=getattr(doc, 'file_type', '') or '',
-                    validation_result=getattr(doc, 'validation_result', None) or ValidationResult()
+                    validation_result=getattr(doc, 'validation_result', None) or DocumentParsingValidationResult(is_valid=True, quality_score=0.0)
                 ))
         # Log processing statistics
         stats = processor.get_processing_stats()
@@ -186,7 +186,7 @@ def _process_links(run: BrainRun, links: list[str]) -> list[ParsedDocument]:
                 quality_score=0.0
             ),
             file_type="url",
-            validation_result=ValidationResult()
+            validation_result=DocumentParsingValidationResult(is_valid=True, quality_score=0.0)
         )
         placeholder_documents.append(placeholder_doc)
     
