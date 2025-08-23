@@ -1,5 +1,9 @@
 # brain/utils/telemetry.py
 
+"""
+Telemetry module for logging and tracking events within the Brain application.
+"""
+
 import time
 from typing import Callable, Any, Dict, List, Optional
 from django.db import transaction
