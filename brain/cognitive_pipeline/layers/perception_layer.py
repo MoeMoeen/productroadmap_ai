@@ -4,6 +4,7 @@ from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
 from brain.cognitive_pipeline.utils import log_node_io
 from brain.cognitive_pipeline.utils import handle_errors
+from brain.cognitive_pipeline.nodes.perception_node import parse_documents_node
 
 @handle_errors(raise_on_error=False)
 @log_node_io(node_name="perception_layer")
@@ -35,8 +36,7 @@ def perception_layer(run: BrainRun, state: GraphState) -> GraphState:
 	- Implement logic to parse and normalize all supported document types
 	- Integrate with atomic parsing nodes as needed
 	"""
-	print("[TODO] Parse and normalize uploaded documents")
-	# state.parsed_documents = ...
-	return state
+	# Perception layer: simply delegates to the atomic node for document parsing
+	return parse_documents_node(run, state)
 # Perception Layer
 # TODO: Move perception logic here from nodes/perception.py
