@@ -1,7 +1,8 @@
-# brain/langgraph_flow/nodes/perception.py
+# brain/cognitive_pipeline/nodes/perception_node.py
 
 from typing import Dict, Any
 import logging
+
 
 from ...models.runs import BrainRun
 from ...utils.telemetry import log_info_event, log_validation_event
@@ -9,8 +10,83 @@ from ...services.document_processor import DocumentProcessor, DocumentProcessing
 from ...services.llm_document_processor import LLMDocumentProcessor
 from ...services.validators import FileValidator
 from ..schema import GraphState, ParsedDocument, DocumentMetadata, DocumentParsingValidationResult
+from ..logic.perception_logic import parse_documents_logic
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_inputs(state):
+    if not state.uploaded_files and not state.links:
+        raise DocumentProcessingError("No files or links provided for processing")
+    return True
+
+
+def _select_processor():
+    from decouple import config
+    from typing import Optional
+    anthropic_key_raw = str(config('ANTHROPIC_API_KEY', default=''))
+    openai_key_raw = str(config('OPENAI_API_KEY', default=''))
+    anthropic_key: Optional[str] = anthropic_key_raw if anthropic_key_raw else None
+    openai_key: Optional[str] = openai_key_raw if openai_key_raw else None
+    if anthropic_key or openai_key:
+        return LLMDocumentProcessor(
+            anthropic_api_key=anthropic_key,
+            openai_api_key=openai_key
+        ), "hybrid_llm"
+    else:
+        logger.warning("No LLM API keys found, using traditional processing only")
+        return DocumentProcessor(), "traditional_only"
+
+
+def _process_files(processor, file_paths, run, processing_method):
+    validation_result = FileValidator.validate_file_paths(file_paths)
+    log_validation_event(run, "parse_documents", {
+        "is_valid": validation_result.is_valid,
+        "errors": validation_result.errors,
+        "warnings": validation_result.warnings,
+        "details": validation_result.details,
+        "processing_method": processing_method
+    })
+    if not validation_result.is_valid:
+        raise DocumentProcessingError(f"File validation failed: {'; '.join(validation_result.errors)}")
+    documents = processor.process_files(file_paths)
+    parsed_documents = []
+    for doc in documents:
+        if isinstance(doc, ParsedDocument):
+            parsed_documents.append(doc)
+        elif isinstance(doc, dict):
+            parsed_documents.append(ParsedDocument(**doc))
+        else:
+            parsed_documents.append(ParsedDocument(
+                file_path=getattr(doc, 'file_path', '') or '',
+                content=getattr(doc, 'content', ''),
+                metadata=getattr(doc, 'metadata', None) or DocumentMetadata(
+                    file_path=getattr(doc, 'file_path', '') or '',
+                    file_size=getattr(doc, 'file_size', 0) or 0,
+                    file_type=getattr(doc, 'file_type', '') or '',
+                    quality_score=getattr(doc, 'quality_score', 0.0) or 0.0
+                ),
+                file_type=getattr(doc, 'file_type', '') or '',
+                validation_result=getattr(doc, 'validation_result', None) or DocumentParsingValidationResult(is_valid=True, quality_score=0.0)
+            ))
+    stats = processor.get_processing_stats()
+    log_info_event(run, "parse_documents", "File processing completed", {
+        "processing_stats": stats,
+        "documents_created": len(parsed_documents),
+        "processing_method": processing_method
+    })
+    return parsed_documents, stats
+
+
+def _log_processing_summary(run, parsed_documents, validation_summary, stats, llm_used):
+    log_info_event(run, "parse_documents", "Hybrid document parsing completed", {
+        "documents_processed": len(parsed_documents),
+        "total_content_length": sum(len(doc.content) for doc in parsed_documents),
+        "validation_summary": validation_summary,
+        "hybrid_processing_used": True,
+        "llm_used": llm_used,
+        "processing_stats": stats
+    })
 
 
 def parse_documents_node(run: BrainRun, state: GraphState) -> GraphState:
@@ -29,139 +105,25 @@ def parse_documents_node(run: BrainRun, state: GraphState) -> GraphState:
     Returns:
         Updated GraphState with parsed_documents populated
     """
+    # Thin wrapper: delegate to pure logic, passing all dependencies
     try:
-        log_info_event(run, "parse_documents", "Starting hybrid document parsing", {
-            "file_count": len(state.uploaded_files),
-            "link_count": len(state.links),
-            "framework": state.framework,
-            "hybrid_processing": True
-        })
-        
-        # Validate input files
-        if not state.uploaded_files and not state.links:
-            raise DocumentProcessingError("No files or links provided for processing")
-        
-        parsed_documents = []
-        
-        # Process uploaded files with hybrid approach
-        if state.uploaded_files:
-            parsed_documents.extend(_process_uploaded_files_hybrid(run, state.uploaded_files))
-        
-        # Process links (placeholder for now)
-        if state.links:
-            parsed_documents.extend(_process_links(run, state.links))
-        
-        # Validate overall processing results
-        validation_summary = _validate_processing_results(run, parsed_documents)
-        
-        # Log processing summary
-        log_info_event(run, "parse_documents", "Hybrid document parsing completed", {
-            "documents_processed": len(parsed_documents),
-            "total_content_length": sum(len(doc.content) for doc in parsed_documents),
-            "validation_summary": validation_summary,
-            "hybrid_processing_used": True
-        })
-        
-        # Update state with parsed documents
-        updated_state = state.model_copy()
-        updated_state.parsed_documents = parsed_documents
-        
-        return updated_state
-        
+        return parse_documents_logic(
+            run,
+            state,
+            select_processor=_select_processor,
+            process_files=_process_files,
+            process_links=_process_links,
+            validate_processing_results=_validate_processing_results,
+            log_info_event=log_info_event,
+            log_validation_event=log_validation_event
+        )
     except Exception as e:
         error_msg = f"Hybrid document parsing failed: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        
-        # Update run status to failed
         run.mark_failed("parse_documents_error", error_msg)
-        
-        # Re-raise to be handled by telemetry decorator
         raise
 
 
-def _process_uploaded_files_hybrid(run: BrainRun, file_paths: list[str]) -> list[ParsedDocument]:
-    """Process uploaded files using hybrid LLM + traditional approach."""
-    # Validate file paths first
-    validation_result = FileValidator.validate_file_paths(file_paths)
-    
-    log_validation_event(run, "parse_documents", {
-        "is_valid": validation_result.is_valid,
-        "errors": validation_result.errors,
-        "warnings": validation_result.warnings,
-        "details": validation_result.details,
-        "processing_method": "hybrid"
-    })
-    
-    if not validation_result.is_valid:
-        raise DocumentProcessingError(f"File validation failed: {'; '.join(validation_result.errors)}")
-    
-    # Initialize hybrid processor with proper environment loading
-    from decouple import config
-    from typing import Optional
-    
-    try:
-        anthropic_key_raw = str(config('ANTHROPIC_API_KEY', default=''))
-        openai_key_raw = str(config('OPENAI_API_KEY', default=''))
-        # Convert empty strings to None
-        anthropic_key: Optional[str] = anthropic_key_raw if anthropic_key_raw else None
-        openai_key: Optional[str] = openai_key_raw if openai_key_raw else None
-    except Exception:
-        anthropic_key = None
-        openai_key = None
-    
-    processor: Any
-    if anthropic_key or openai_key:
-        processor = LLMDocumentProcessor(
-            anthropic_api_key=anthropic_key,
-            openai_api_key=openai_key
-        )
-        processing_method = "hybrid_llm"
-    else:
-        # Fallback to traditional processing if no LLM keys
-        processor = DocumentProcessor()
-        processing_method = "traditional_only"
-        logger.warning("No LLM API keys found, using traditional processing only")
-    
-    log_info_event(run, "parse_documents", "Starting file processing", {
-        "file_count": len(file_paths),
-        "validation_score": validation_result.quality_score,
-        "processing_method": processing_method
-    })
-    
-    try:
-        documents = processor.process_files(file_paths)
-        # Convert to ParsedDocument if needed
-        parsed_documents = []
-        for doc in documents:
-            if isinstance(doc, ParsedDocument):
-                parsed_documents.append(doc)
-            elif isinstance(doc, dict):
-                parsed_documents.append(ParsedDocument(**doc))
-            else:
-                # Fallback: try to extract fields
-                parsed_documents.append(ParsedDocument(
-                    file_path=getattr(doc, 'file_path', '') or '',
-                    content=getattr(doc, 'content', ''),
-                    metadata=getattr(doc, 'metadata', None) or DocumentMetadata(
-                        file_path=getattr(doc, 'file_path', '') or '',
-                        file_size=getattr(doc, 'file_size', 0) or 0,
-                        file_type=getattr(doc, 'file_type', '') or '',
-                        quality_score=getattr(doc, 'quality_score', 0.0) or 0.0
-                    ),
-                    file_type=getattr(doc, 'file_type', '') or '',
-                    validation_result=getattr(doc, 'validation_result', None) or DocumentParsingValidationResult(is_valid=True, quality_score=0.0)
-                ))
-        # Log processing statistics
-        stats = processor.get_processing_stats()
-        log_info_event(run, "parse_documents", "File processing completed", {
-            "processing_stats": stats,
-            "documents_created": len(parsed_documents),
-            "processing_method": processing_method
-        })
-        return parsed_documents
-        
-    except Exception as e:
-        raise DocumentProcessingError(f"Hybrid file processing failed: {e}")
 
 
 def _process_links(run: BrainRun, links: list[str]) -> list[ParsedDocument]:

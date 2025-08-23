@@ -1,5 +1,9 @@
 # brain/services/validators.py
 
+"""
+Used for file pre-validation only
+"""
+
 import os
 import mimetypes
 from typing import List, Dict, Any, Optional

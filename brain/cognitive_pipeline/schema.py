@@ -1,7 +1,21 @@
+
+
+
 # brain/cognitive_pipeline/schema.py
 
+
+# Unified validation summary for document ingestion
 from pydantic import BaseModel
 from typing import List, Optional, Literal, Any, Dict
+
+# Unified validation summary for document ingestion
+class DocumentValidationSummary(BaseModel):
+    overall_valid: bool
+    document_count: int
+    valid_documents: int
+    file_types: List[str]
+    quality_score: Optional[float] = None
+    hybrid_processing: bool = False
 
 
 # Business Initiative
@@ -196,6 +210,9 @@ class GraphState(BaseModel):
     
     # Node outputs
     parsed_documents: Optional[List[ParsedDocument]] = None  # After parse_documents_node
+    document_validation_summary: Optional[DocumentValidationSummary] = None
+    llm_used: Optional[bool] = None
+    llm_processing_stats: Optional[Dict[str, Any]] = None
     business_objectives: Optional[List[BusinessObjective]] = None
     customer_objectives: Optional[List[CustomerObjective]] = None
     product_kpis: Optional[List[ProductKPI]] = None
