@@ -1,6 +1,3 @@
-
-
-
 # brain/cognitive_pipeline/schema.py
 
 
@@ -57,13 +54,18 @@ class StepStrategy(BaseModel):
 
 # Stub: ExtractedEntity
 class ExtractedEntity(BaseModel):
-    entity_type: str
-    value: Any
-    confidence: Optional[float] = None
-    # For future traceability:
-    source_document_id: Optional[str] = None
-    source_text_excerpt: Optional[str] = None
-
+    entity_type: str  # e.g. BusinessObjective, ProductKPI, etc.
+    value: Any  # The extracted value (can be str, dict, etc.)
+    confidence: Optional[float] = None  # 0.0-1.0, if available
+    extraction_method: Optional[str] = None  # 'llm', 'keyword', 'hybrid', etc.
+    step: Optional[str] = None  # Pipeline step (e.g. 'entity_extraction')
+    memory_reference: Optional[str] = None  # Link to semantic memory entry if applicable
+    relationships: Optional[Dict[str, Any]] = None  # e.g. {'related_to': 'ProductInitiative', ...}
+    source_document_id: Optional[str] = None  # For traceability
+    source_text_excerpt: Optional[str] = None  # For traceability
+    created_at: Optional[str] = None  # ISO timestamp, if available
+    updated_at: Optional[str] = None  # ISO timestamp, if available
+    origin: Optional[str] = None  # New field to track origin of extraction
 
 # Business Objective
 class BusinessObjective(BaseModel):
@@ -193,8 +195,6 @@ class ParsedDocument(BaseModel):
 
 
 #-----GraphState-----
-
-
 
 class GraphState(BaseModel):
     """
