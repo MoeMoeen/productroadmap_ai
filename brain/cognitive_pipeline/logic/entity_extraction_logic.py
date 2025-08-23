@@ -1,13 +1,29 @@
 # brain/cognitive_pipeline/logic/entity_extraction_logic.py
 
 from typing import List, Any, Dict, Optional
-from ..schema import GraphState, ExtractedEntity
+from ..schema import ExtractedEntity
+from brain.prompts.entity_extraction_prompts import ENTITY_EXTRACTION_PROMPT
 from difflib import SequenceMatcher
 import datetime
-import re
 import json
 import os
+import re
 import yaml
+import time
+from brain.prompts.entity_extraction_prompts import ENTITY_EXTRACTION_PROMPT
+
+
+# --- Telemetry Decorator ---
+def log_time(fn):
+    def wrapper(*args, **kwargs):
+        log_fn = kwargs.get('log_fn')
+        start = time.time()
+        result = fn(*args, **kwargs)
+        duration = time.time() - start
+        if log_fn:
+            log_fn({"event_type": "timing", "step": fn.__name__, "duration": duration})
+        return result
+    return wrapper
 
 # --- Step 5: Episodic Memory Logging ---
 def log_extraction_event(entity, run_id=None, log_fn=None):
@@ -31,6 +47,7 @@ def log_extraction_event(entity, run_id=None, log_fn=None):
     return event
 
 # --- Final Pipeline Wiring Example ---
+@log_time
 def run_entity_extraction_pipeline(
     parsed_documents,
     world_model,
@@ -38,21 +55,22 @@ def run_entity_extraction_pipeline(
     episodic_memory,
     llm_fn,
     run_id=None,
-    log_fn=None
+    log_fn=None,
+    max_attempts=2
 ):
     """
     Full pipeline: keyword + LLM extraction, deduplication, enrichment, and episodic memory logging.
     Returns list of enriched ExtractedEntity.
     """
     # 1. Keyword extraction
-    keyword_entities = keyword_extract_entities(parsed_documents, world_model, semantic_memory)
+    keyword_entities = log_time(keyword_extract_entities)(parsed_documents, world_model, semantic_memory, log_fn=log_fn)
     # 2. LLM extraction
-    llm_entities = llm_extract_entities(parsed_documents, world_model, semantic_memory, llm_fn)
+    llm_entities = log_time(llm_extract_entities)(parsed_documents, world_model, semantic_memory, llm_fn, log_fn=log_fn, max_attempts=max_attempts)
     # 3. Combine and deduplicate
     all_entities = keyword_entities + llm_entities
-    deduped_entities = deduplicate_entities(all_entities, semantic_memory, episodic_memory, log_fn=log_fn)
+    deduped_entities = log_time(deduplicate_entities)(all_entities, semantic_memory, episodic_memory, log_fn=log_fn)
     # 4. Enrich
-    enriched_entities = enrich_entities(deduped_entities, world_model, semantic_memory)
+    enriched_entities = log_time(enrich_entities)(deduped_entities, world_model, semantic_memory, log_fn=log_fn)
     # 5. Log to episodic memory
     for ent in enriched_entities:
         log_extraction_event(ent, run_id=run_id, log_fn=log_fn)
@@ -63,71 +81,76 @@ def run_entity_extraction_pipeline(
 
 # --- Step 4: LLM-Based Extraction Logic ---
 
-LLM_EXTRACTION_PROMPT = """
-You are an expert business analyst. Given the following context, extract all business entities and organizational facts of the following types: BusinessObjective, BusinessInitiative, CustomerObjective, CustomerSegment, ProductInitiative, ProductKPI, BusinessKPI, Product, Vision, Strategy, Market, Department, Headcount, and any relationships between them. Avoid duplicates with prior entities and enrich ambiguous facts using the world model.
 
-World Model (current org facts):
-{world_model}
-
-Prior Entities (semantic memory):
-{prior_entities}
-
-Document:
-{document}
-"""
-
-def llm_extract_entities(parsed_documents, world_model, prior_entities, llm_fn, max_tokens=2048):
+def llm_extract_entities(parsed_documents, world_model, prior_entities, llm_fn, max_tokens=2048, log_fn=None, max_attempts=2):
     """
     Use an LLM to extract entities from parsed documents. Handles prompt construction, output validation, and error handling.
     llm_fn: function that takes a prompt and returns a string (LLM output)
+    max_attempts: number of LLM retry attempts before fallback (default 2)
     """
     results = []
     world_model_str = json.dumps(world_model, default=str) if world_model else "{}"
     prior_entities_str = json.dumps([
         {"entity_type": e.entity_type, "value": e.value} for e in (prior_entities or [])
     ], default=str)
-    # Accept log_fn as kwarg for error logging
-    log_fn = None
-    if 'log_fn' in locals():
-        log_fn = locals()['log_fn']
+    # log_fn and max_attempts are now explicit arguments
+    # Fallback: import keyword_extract_entities here to avoid circular import
+    from .entity_extraction_logic import keyword_extract_entities
     for doc in parsed_documents:
         text = doc.content if hasattr(doc, "content") else str(doc)
-        prompt = LLM_EXTRACTION_PROMPT.format(
+        prompt = ENTITY_EXTRACTION_PROMPT.format(
             world_model=world_model_str,
             prior_entities=prior_entities_str,
             document=text[:max_tokens]
         )
-        try:
-            llm_output = llm_fn(prompt)
-            entities = json.loads(llm_output)
-            if not isinstance(entities, list):
-                continue
-            for ent in entities:
-                if not ent.get("entity_type") or not ent.get("value"):
-                    continue
-                entity = ExtractedEntity(
-                    entity_type=ent["entity_type"],
-                    value=ent["value"],
-                    confidence=ent.get("confidence", 0.85),
-                    extraction_method="llm",
-                    step="entity_extraction",
-                    relationships=ent.get("relationships"),
-                    source_document_id=getattr(doc, "file_path", None),
-                    source_text_excerpt=text[:200],
-                    origin=ent.get("origin", None)
-                )
-                results.append(entity)
-        except Exception as e:
-            # Log LLM/JSON errors for later inspection
+        attempt = 0
+        success = False
+        while attempt < max_attempts and not success:
+            try:
+                llm_output = llm_fn(prompt)
+                entities = json.loads(llm_output)
+                if not isinstance(entities, list):
+                    raise ValueError("LLM output is not a list")
+                for ent in entities:
+                    if not ent.get("entity_type") or not ent.get("value"):
+                        continue
+                    entity = ExtractedEntity(
+                        entity_type=ent["entity_type"],
+                        value=ent["value"],
+                        confidence=ent.get("confidence", 0.85),
+                        extraction_method="llm",
+                        step="entity_extraction",
+                        relationships=ent.get("relationships"),
+                        source_document_id=getattr(doc, "file_path", None),
+                        source_text_excerpt=text[:200],
+                        origin=ent.get("origin", None)
+                    )
+                    results.append(entity)
+                success = True
+            except Exception as e:
+                if log_fn:
+                    log_fn({
+                        "event_type": "llm_extraction_error",
+                        "error": str(e),
+                        "prompt_excerpt": prompt[:200],
+                        "doc_id": getattr(doc, "file_path", None),
+                        "attempt": attempt + 1
+                    })
+                attempt += 1
+        if not success:
+            # Fallback to keyword extraction for this doc
             if log_fn:
                 log_fn({
-                    "event_type": "llm_extraction_error",
-                    "error": str(e),
-                    "prompt_excerpt": prompt[:200],
+                    "event_type": "llm_extraction_fallback",
+                    "reason": f"LLM failed after {max_attempts} attempts, using keyword extraction",
                     "doc_id": getattr(doc, "file_path", None)
                 })
-            continue
+            # Use a single-doc list for keyword extraction
+            fallback_entities = keyword_extract_entities([doc], world_model, prior_entities)
+            results.extend(fallback_entities)
+
     return results
+
 # --- Step 2: Deduplication Logic (Semantic & Episodic Memory aware) ---
 
 def is_duplicate_entity(new_entity, prior_entity, threshold=0.85):

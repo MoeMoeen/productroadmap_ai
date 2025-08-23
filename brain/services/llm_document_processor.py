@@ -1,3 +1,4 @@
+
 # brain/services/llm_document_processor.py
 
 """
@@ -23,6 +24,8 @@ from openai import OpenAI
 
 from .document_processor import DocumentProcessor, DocumentProcessingError
 from brain.cognitive_pipeline.schema import ParsedDocument, DocumentMetadata, DocumentParsingValidationResult
+
+from brain.prompts.document_analysis_prompts import DOCUMENT_ANALYSIS_PROMPT, FALLBACK_ANALYSIS_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -204,21 +207,7 @@ class LLMDocumentProcessor(DocumentProcessor):
     
     def _get_llm_content_analysis(self, content: str, file_type: str) -> Optional[Dict[str, Any]]:
         """Get LLM analysis of document content."""
-        prompt = f"""
-Analyze this {file_type} document content for product roadmap planning:
-
-{content}
-
-Please provide a JSON analysis with:
-1. "content_summary": Brief summary of the document
-2. "strategic_elements": List of strategic planning elements found
-3. "key_entities": Important entities (features, stakeholders, timelines)
-4. "document_structure": Assessment of how well-structured the content is
-5. "quality_indicators": Factors affecting document quality
-6. "recommendations": Suggestions for better roadmap planning
-
-Respond with valid JSON only.
-"""
+        prompt = DOCUMENT_ANALYSIS_PROMPT.format(content=content, file_type=file_type)
         
         try:
             if self.anthropic_client:
@@ -251,19 +240,7 @@ Respond with valid JSON only.
     
     def _get_llm_fallback_analysis(self, content: str, file_extension: str) -> Optional[Dict[str, Any]]:
         """Get LLM analysis as fallback for failed traditional parsing."""
-        prompt = f"""
-This {file_extension} file failed traditional parsing. Please extract any useful information for product roadmap planning:
-
-{content[:1500]}
-
-Provide a JSON response with:
-1. "extracted_content": Any readable content you can identify
-2. "potential_structure": Guessed document structure
-3. "confidence_level": Your confidence in the extraction (0.0-1.0)
-4. "recommendations": What would help parse this better
-
-Respond with valid JSON only.
-"""
+        prompt = FALLBACK_ANALYSIS_PROMPT.format(content=content[:1500], file_extension=file_extension)
         
         try:
             if self.anthropic_client:
