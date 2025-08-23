@@ -1,0 +1,20 @@
+[
+  {
+    "model": "accounts.product",
+    "pk": 1,
+    "fields": {
+      "organization": 1,
+      "name": "QuantumCloud",
+      "description": "Our cloud-native quantum data analysis platform."
+    }
+  },
+  {
+    "model": "accounts.product",
+    "pk": 2,
+    "fields": {
+      "organization": 1,
+      "name": "NeuroDash",
+      "description": "Cognitive AI dashboard for enterprise use."
+    }
+  }
+]

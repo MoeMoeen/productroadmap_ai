@@ -11,7 +11,7 @@ from docx import Document as DocxDocument
 from openpyxl import load_workbook
 
 # Local imports
-from brain.schemas.documents import ParsedDocument, DocumentMetadata, ValidationResult
+from brain.cognitive_pipeline.schema import ParsedDocument, DocumentMetadata, DocumentParsingValidationResult
 
 
 class DocumentProcessingError(Exception):
@@ -148,23 +148,31 @@ class DocumentProcessor:
         processing_time = time.perf_counter() - start_time
         content = "\n\n".join(content_parts)
         
-        # Create metadata
+        # Validate extraction quality and build details
+        validation = self._validate_extraction(content, tables, {
+            "file_size": os.path.getsize(file_path),
+            "processing_time_ms": int(processing_time * 1000),
+            "page_count": page_count,
+            "table_count": len(tables),
+            "extracted_text_length": len(content)
+        })
         metadata = DocumentMetadata(
             file_path=file_path,
             file_size=os.path.getsize(file_path),
             file_type="pdf",
-            page_count=page_count,
-            table_count=len(tables),
-            processing_time_ms=int(processing_time * 1000),
-            extracted_text_length=len(content)
+            quality_score=validation.quality_score,
+            errors=validation.errors,
+            warnings=validation.warnings,
+            details={
+                "page_count": page_count,
+                "table_count": len(tables),
+                "processing_time_ms": int(processing_time * 1000),
+                "extracted_text_length": len(content)
+            },
+            processing_method="traditional"
         )
-        
-        # Validate extraction quality
-        validation = self._validate_extraction(content, tables, metadata)
-        
         self.stats['total_pages'] += page_count
         self.stats['total_tables'] += len(tables)
-        
         return ParsedDocument(
             file_path=file_path,
             file_type="pdf",
@@ -215,23 +223,31 @@ class DocumentProcessor:
         processing_time = time.perf_counter() - start_time
         content = "\n".join(content_parts)
         
-        # Create metadata
+        # Validate extraction quality and build details
+        validation = self._validate_extraction(content, tables, {
+            "file_size": os.path.getsize(file_path),
+            "processing_time_ms": int(processing_time * 1000),
+            "page_count": 1,
+            "table_count": len(tables),
+            "extracted_text_length": len(content)
+        })
         metadata = DocumentMetadata(
             file_path=file_path,
             file_size=os.path.getsize(file_path),
             file_type="docx",
-            page_count=1,  # DOCX doesn't have explicit pages
-            table_count=len(tables),
-            processing_time_ms=int(processing_time * 1000),
-            extracted_text_length=len(content)
+            quality_score=validation.quality_score,
+            errors=validation.errors,
+            warnings=validation.warnings,
+            details={
+                "page_count": 1,
+                "table_count": len(tables),
+                "processing_time_ms": int(processing_time * 1000),
+                "extracted_text_length": len(content)
+            },
+            processing_method="traditional"
         )
-        
-        # Validate extraction
-        validation = self._validate_extraction(content, tables, metadata)
-        
         self.stats['total_pages'] += 1
         self.stats['total_tables'] += len(tables)
-        
         return ParsedDocument(
             file_path=file_path,
             file_type="docx",
@@ -293,23 +309,31 @@ class DocumentProcessor:
         processing_time = time.perf_counter() - start_time
         content = "\n".join(content_parts)
         
-        # Create metadata
+        # Validate extraction quality and build details
+        validation = self._validate_extraction(content, tables, {
+            "file_size": os.path.getsize(file_path),
+            "processing_time_ms": int(processing_time * 1000),
+            "page_count": sheet_count,
+            "table_count": len(tables),
+            "extracted_text_length": len(content)
+        })
         metadata = DocumentMetadata(
             file_path=file_path,
             file_size=os.path.getsize(file_path),
             file_type="xlsx",
-            page_count=sheet_count,
-            table_count=len(tables),
-            processing_time_ms=int(processing_time * 1000),
-            extracted_text_length=len(content)
+            quality_score=validation.quality_score,
+            errors=validation.errors,
+            warnings=validation.warnings,
+            details={
+                "page_count": sheet_count,
+                "table_count": len(tables),
+                "processing_time_ms": int(processing_time * 1000),
+                "extracted_text_length": len(content)
+            },
+            processing_method="traditional"
         )
-        
-        # Validate extraction
-        validation = self._validate_extraction(content, tables, metadata)
-        
         self.stats['total_pages'] += sheet_count
         self.stats['total_tables'] += len(tables)
-        
         return ParsedDocument(
             file_path=file_path,
             file_type="xlsx",
@@ -338,26 +362,33 @@ class DocumentProcessor:
         
         processing_time = time.perf_counter() - start_time
         
-        # Create metadata
+        # Validate extraction quality and build details
+        validation = self._validate_extraction(content, [], {
+            "file_size": os.path.getsize(file_path),
+            "processing_time_ms": int(processing_time * 1000),
+            "page_count": 1,
+            "table_count": 0,
+            "extracted_text_length": len(content),
+            "encoding": "utf-8",
+            "line_count": content.count('\n') + 1
+        })
         metadata = DocumentMetadata(
             file_path=file_path,
             file_size=os.path.getsize(file_path),
             file_type="txt",
-            page_count=1,
-            table_count=0,
-            processing_time_ms=int(processing_time * 1000),
-            extracted_text_length=len(content)
+            quality_score=validation.quality_score,
+            errors=validation.errors,
+            warnings=validation.warnings,
+            details={
+                "page_count": 1,
+                "table_count": 0,
+                "processing_time_ms": int(processing_time * 1000),
+                "extracted_text_length": len(content),
+                "encoding": "utf-8",
+                "line_count": content.count('\n') + 1
+            },
+            processing_method="traditional"
         )
-        
-        # Simple validation for text files
-        validation = ValidationResult(
-            is_valid=True,
-            quality_score=1.0 if content.strip() else 0.0,
-            errors=[],
-            warnings=[] if content.strip() else ["Text file appears to be empty"],
-            details={"encoding": "utf-8", "line_count": content.count('\n') + 1}
-        )
-        
         return ParsedDocument(
             file_path=file_path,
             file_type="txt",
@@ -367,12 +398,14 @@ class DocumentProcessor:
             validation_result=validation
         )
     
-    def _validate_extraction(self, content: str, tables: List[Dict], metadata: DocumentMetadata) -> ValidationResult:
+    def _validate_extraction(self, content: str, tables: List[Dict], meta: dict) -> DocumentParsingValidationResult:
         """Validate the quality of extraction results."""
         errors = []
         warnings = []
         quality_score = 1.0
-        
+        file_size = meta.get("file_size", 1)
+        processing_time_ms = meta.get("processing_time_ms", 0)
+        file_type = meta.get("file_type", None)
         # Content validation
         if not content.strip():
             errors.append("No text content extracted")
@@ -380,24 +413,19 @@ class DocumentProcessor:
         elif len(content.strip()) < 50:
             warnings.append("Very little text content extracted")
             quality_score *= 0.7
-        
         # File size vs content ratio check
-        content_ratio = len(content) / max(metadata.file_size, 1)
+        content_ratio = len(content) / max(file_size, 1)
         if content_ratio < 0.001:  # Less than 0.1% conversion rate
             warnings.append("Low text extraction ratio - file may contain mostly images or formatting")
             quality_score *= 0.8
-        
         # Processing time check
-        if metadata.processing_time_ms > 30000:  # 30 seconds
+        if processing_time_ms > 30000:  # 30 seconds
             warnings.append("Processing took longer than expected")
-        
         # Table validation
-        if metadata.file_type in ['xlsx', 'pdf'] and not tables:
+        if file_type in ['xlsx', 'pdf'] and not tables:
             warnings.append("No tables found - this may be expected or indicate parsing issues")
-        
         is_valid = len(errors) == 0
-        
-        return ValidationResult(
+        return DocumentParsingValidationResult(
             is_valid=is_valid,
             quality_score=quality_score,
             errors=errors,
@@ -405,31 +433,33 @@ class DocumentProcessor:
             details={
                 "content_length": len(content),
                 "content_ratio": content_ratio,
-                "processing_time_ms": metadata.processing_time_ms,
+                **meta,
                 "table_count": len(tables)
-            }
+            },
+            processing_method="traditional"
         )
     
     def _create_failed_document(self, file_path: str, error_message: str) -> ParsedDocument:
         """Create a ParsedDocument for failed processing."""
+        file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
         metadata = DocumentMetadata(
             file_path=file_path,
-            file_size=os.path.getsize(file_path) if os.path.exists(file_path) else 0,
+            file_size=file_size,
             file_type="unknown",
-            page_count=0,
-            table_count=0,
-            processing_time_ms=0,
-            extracted_text_length=0
+            quality_score=0.0,
+            errors=[error_message],
+            warnings=[],
+            details={"processing_failed": True},
+            processing_method="traditional"
         )
-        
-        validation = ValidationResult(
+        validation = DocumentParsingValidationResult(
             is_valid=False,
             quality_score=0.0,
             errors=[error_message],
             warnings=[],
-            details={"processing_failed": True}
+            details={"processing_failed": True},
+            processing_method="traditional"
         )
-        
         return ParsedDocument(
             file_path=file_path,
             file_type="failed",

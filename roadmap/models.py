@@ -1,6 +1,6 @@
 from django.db import models
 from common.models import TimeStampedModel, ContributionType
-from accounts.models import Organization, User
+from accounts.models import Organization, User, Product
 
 
 # Create your models here.
@@ -81,8 +81,18 @@ class ProductInitiative(TimeStampedModel):
         related_name='linked_product_initiatives'
     )
     
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="initiatives",
+        null=False,
+        blank=False
+    )
+
     def __str__(self):
-        return self.title
+        product_name = self.product.name if self.product else "No Product"
+        return f"{self.title} ({product_name})"
 
     class Meta:
         ordering = ['-created_at']
