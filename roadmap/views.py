@@ -83,6 +83,7 @@ class ProductInitiativeViewSet(ModelViewSet):
     """
     serializer_class = ProductInitiativeSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
+    filterset_fields = ["product"]  # enables ?product=1 filter
     
     def get_queryset(self):
         user = self.request.user

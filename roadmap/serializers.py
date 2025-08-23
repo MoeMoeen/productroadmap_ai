@@ -3,6 +3,7 @@ from .models import ProductKPI, ProductInitiativeKPI, ProductInitiative
 from .models import BusinessInitiative, CustomerObjective, BusinessInitiativeProductInitiative, CustomerObjectiveProductInitiative
 from .models import CustomerSegment, BusinessKPI
 from .models import BusinessObjective, Roadmap, RoadmapEntry
+from accounts.models import Product
 
 
 class CustomerObjectiveSummarySerializer(serializers.ModelSerializer):
@@ -167,7 +168,16 @@ class BusinessObjectiveSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_by', 'organization']
 
+class ProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ("id", "name", "description")
+
 class ProductInitiativeSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(), source="product", write_only=True
+    )
     product_kpis = ProductInitiativeKPISerializer(many=True, read_only=True, source='product_initiative_kpis')
     business_initiatives = BusinessInitiativeSerializer(read_only=True, many=True)
     customer_objectives = CustomerObjectiveSummarySerializer(read_only=True, many=True)
@@ -184,6 +194,8 @@ class ProductInitiativeSerializer(serializers.ModelSerializer):
             'status',
             'organization',
             'owner',
+            'product',
+            'product_id',
             'product_kpis',
             'business_initiatives',
             'customer_objectives',
@@ -199,7 +211,6 @@ class ProductInitiativeSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def get_business_objectives(self, obj):
-        # business_objectives = obj.business_initiatives.values_list('business_objective', flat=True)
         business_objectives = set()
         for initiative in obj.business_initiatives.all():
             for objective in initiative.business_objectives.all():

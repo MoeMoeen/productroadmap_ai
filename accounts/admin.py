@@ -2,7 +2,7 @@ from django.contrib import admin
 
 # Register your models here.
 
-from .models import Organization, User
+from .models import Organization, User, Product
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
@@ -20,3 +20,8 @@ class UserAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.select_related('organization')
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ("name", "organization", "description")
+    search_fields = ("name",)
