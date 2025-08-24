@@ -3,8 +3,8 @@
 from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
 # TODO: Import or implement WorldModel ORM/model when available
-from brain.cognitive_pipeline.utils import log_node_io
-from brain.cognitive_pipeline.utils import handle_errors
+from brain.cognitive_pipeline.utils.utils import log_node_io
+from brain.cognitive_pipeline.utils.utils import handle_errors
 
 @handle_errors(raise_on_error=False)
 @log_node_io(node_name="world_model_layer")
@@ -35,7 +35,67 @@ def world_model_layer(run: BrainRun, state: GraphState) -> GraphState:
 	- Implement logic to update world model from state (e.g., parsed documents, extracted entities)
 	- Integrate with WorldModel ORM/model when available
 	"""
-	print("[TODO] Update world model with latest org state from GraphState")
+	# 1. Read extracted_entities and inferred_relationships from state
+	extracted_entities = getattr(state, "extracted_entities", None) or []
+	inferred_relationships = getattr(state, "inferred_relationships", None) or []
+
+	# 2. Update the world model (in-memory, using BusinessProfile Pydantic model)
+	from brain.cognitive_pipeline.schema import BusinessProfile
+	bp_data = state.business_profile.dict() if state.business_profile else {}
+
+	# Example: add all entity values by type (append to lists)
+	for ent in extracted_entities:
+		etype = ent.entity_type if hasattr(ent, "entity_type") else ent.get("entity_type")
+		val = ent.value if hasattr(ent, "value") else ent.get("value")
+		# Map entity types to BusinessProfile fields if possible
+		# Fallback: store in a generic field
+		if etype and hasattr(BusinessProfile, etype.lower() + 's'):
+			field = etype.lower() + 's'
+			bp_data.setdefault(field, [])
+			if val not in bp_data[field]:
+				bp_data[field].append(val)
+		else:
+			# Store in a generic 'entities' field
+			bp_data.setdefault('entities', [])
+			bp_data['entities'].append(ent.dict() if hasattr(ent, 'dict') else dict(ent))
+
+	# Store relationships in a dedicated field
+	bp_data['relationships'] = inferred_relationships
+
+	# Update the business_profile in state
+	state.business_profile = BusinessProfile(**bp_data)
+
+	# 3. Persist the updated world model 
+	try:
+		from brain.models.world_model import WorldModel
+		org_id = getattr(run, "org_id", None) or getattr(state, "org_id", None)
+		if org_id:
+			wm_obj, created = WorldModel.objects.update_or_create(
+				org_id=org_id,
+				defaults={"data": state.business_profile.dict()}
+			)
+			log_fn = getattr(run, "log_fn", None)
+			if log_fn:
+				log_fn({
+					"event_type": "world_model_persisted",
+					"org_id": org_id,
+					"created": created,
+					"updated_at": str(wm_obj.updated_at)
+				})
+	except Exception as e:
+		log_fn = getattr(run, "log_fn", None)
+		if log_fn:
+			log_fn({"event_type": "world_model_persist_error", "error": str(e)})
+
+	# 4. Log the update
+	log_fn = getattr(run, "log_fn", None)
+	if log_fn:
+		log_fn({
+			"event_type": "world_model_updated",
+			"entity_count": len(extracted_entities),
+			"relationship_count": len(inferred_relationships)
+		})
+
 	return state
 # World Model Layer
 # TODO: Implement world model logic

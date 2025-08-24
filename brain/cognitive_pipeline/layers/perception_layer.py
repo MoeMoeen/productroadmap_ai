@@ -2,8 +2,8 @@
 
 from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
-from brain.cognitive_pipeline.utils import log_node_io
-from brain.cognitive_pipeline.utils import handle_errors
+from brain.cognitive_pipeline.utils.utils import log_node_io
+from brain.cognitive_pipeline.utils.utils import handle_errors
 from brain.cognitive_pipeline.nodes.perception_node import parse_documents_node
 
 @handle_errors(raise_on_error=False)

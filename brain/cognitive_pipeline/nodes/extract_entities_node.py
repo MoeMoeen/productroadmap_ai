@@ -2,7 +2,7 @@
 
 from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
-from brain.cognitive_pipeline.utils import log_node_io, handle_errors
+from brain.cognitive_pipeline.utils.utils import log_node_io, handle_errors
 
 @handle_errors(raise_on_error=False)
 @log_node_io(node_name="extract_entities_node")
@@ -60,8 +60,8 @@ def extract_entities_node(run: BrainRun, state: GraphState) -> GraphState:
     if log_fn:
         log_fn({"event_type": "entity_extraction_batch_start", "count": len(parsed_documents)})
 
-    # Run extraction logic
-    extracted_entities = entity_extraction_logic(
+    # Run extraction logic (now returns both entities and relationships)
+    extracted_entities, inferred_relationships = entity_extraction_logic(
         parsed_documents=parsed_documents,
         world_model=world_model,
         semantic_memory=semantic_memory,
@@ -72,10 +72,8 @@ def extract_entities_node(run: BrainRun, state: GraphState) -> GraphState:
         enrich_fn=enrich_entities,
         log_event_fn=(lambda ent: log_extraction_event(ent, run_id=getattr(run, "id", None), log_fn=log_fn)) if log_fn else None
     )
-
-    # Log batch end
     if log_fn:
-        log_fn({"event_type": "entity_extraction_batch_end", "count": len(extracted_entities)})
-
+        log_fn({"event_type": "relationship_inference_batch_end", "count": len(inferred_relationships)})
     state.extracted_entities = extracted_entities
+    state.inferred_relationships = inferred_relationships
     return state

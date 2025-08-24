@@ -35,7 +35,8 @@ class BusinessProfile(BaseModel):
     strategy: Optional[str] = None
     product_model: Optional[str] = None
     kpis: Optional[List[str]] = None
-    initiatives: Optional[List[str]] = None
+    business_initiatives: Optional[List[str]] = None
+    product_initiatives: Optional[List[str]] = None
     goals: Optional[List[str]] = None
     # Add more fields as needed
 
@@ -222,6 +223,8 @@ class GraphState(BaseModel):
     business_initiatives: Optional[List[BusinessInitiative]] = None  # After business_understanding_layer
     generated_roadmap: Optional[Roadmap] = None  # After generate_roadmap_node
     validation_results: Optional[List[DocumentParsingValidationResult]] = None
+    # Relationship inference output
+    inferred_relationships: Optional[list] = None  # After extract_entities_node
 
     # Context and metadata
     context: Optional[Dict[str, Any]] = None

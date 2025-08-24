@@ -12,7 +12,7 @@ import time
 from brain.prompts.entity_extraction_prompts import ENTITY_EXTRACTION_PROMPT
 from brain.prompts.relationship_inference_prompts import RELATIONSHIP_INFERENCE_PROMPT
 
-def infer_entity_relationships(entities, world_model=None, llm_fn=None, use_llm=True, log_fn=None):
+def infer_entity_relationships(entities, world_model=None, llm_fn=None, use_llm=True, log_fn=None) -> List[Dict[str, Any]]:
     """
     Hybrid relationship inference: heuristics + optional LLM-based reasoning.
     Updates each entity's 'relationships' field in place and/or returns a list of inferred relationships.
@@ -400,11 +400,11 @@ def entity_extraction_logic(
     deduplicate_fn,
     enrich_fn,
     log_event_fn=None
-) -> List[ExtractedEntity]:
+) -> tuple[List[ExtractedEntity], List[dict]]:
     """
     Extracts entities from parsed documents, using both keyword/heuristic and LLM-based methods.
     Incorporates semantic and episodic memory for continuity and enrichment.
-    Returns a list of ExtractedEntity.
+    Returns a tuple: (list of enriched ExtractedEntity, list of inferred relationships).
     """
     # 1. Read from semantic memory to prevent duplicates and enrich context
     prior_entities = semantic_memory or []
@@ -417,8 +417,16 @@ def entity_extraction_logic(
     deduped_entities = deduplicate_fn(all_entities, prior_entities)
     # 5. Enrich ambiguous or partial entities
     enriched_entities = enrich_fn(deduped_entities, world_model, prior_entities)
-    # 6. Optionally log extraction events to episodic memory
+    # 6. Relationship inference (after enrichment, before logging)
+    inferred_relationships = infer_entity_relationships(
+        enriched_entities,
+        world_model=world_model,
+        llm_fn=None,  # Pass LLM function if available in your context
+        use_llm=True,
+        log_fn=log_event_fn
+    )
+    # 7. Optionally log extraction events to episodic memory
     if log_event_fn:
         for ent in enriched_entities:
             log_event_fn(ent)
-    return enriched_entities
+    return enriched_entities, inferred_relationships
