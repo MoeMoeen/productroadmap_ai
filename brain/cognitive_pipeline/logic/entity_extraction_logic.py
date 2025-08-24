@@ -2,7 +2,6 @@
 
 from typing import List, Any, Dict, Optional
 from ..schema import ExtractedEntity
-from brain.prompts.entity_extraction_prompts import ENTITY_EXTRACTION_PROMPT
 from difflib import SequenceMatcher
 import datetime
 import json
@@ -11,6 +10,128 @@ import re
 import yaml
 import time
 from brain.prompts.entity_extraction_prompts import ENTITY_EXTRACTION_PROMPT
+from brain.prompts.relationship_inference_prompts import RELATIONSHIP_INFERENCE_PROMPT
+
+def infer_entity_relationships(entities, world_model=None, llm_fn=None, use_llm=True, log_fn=None):
+    """
+    Hybrid relationship inference: heuristics + optional LLM-based reasoning.
+    Updates each entity's 'relationships' field in place and/or returns a list of inferred relationships.
+    """
+    inferred_relationships = []
+    # --- Heuristic: Co-location and type-based rules ---
+    type_map = {}
+    for ent in entities:
+        type_map.setdefault(ent.entity_type, []).append(ent)
+    
+    # ProductInitiative → BusinessInitiative → BusinessObjective
+    # 🔁 0. ProductInitiative → BusinessInitiative
+    for pi in type_map.get('ProductInitiative', []):
+        for bi in type_map.get('BusinessInitiative', []):
+            rel = {
+                'source_entity': {'type': pi.entity_type, 'value': pi.value},
+                'target_entity': {'type': bi.entity_type, 'value': bi.value},
+                'relationship_type': 'supports_initiative',
+                'confidence': 0.65,
+                'rationale': 'Heuristic: ProductInitiative and BusinessInitiative co-occur.'
+            }
+            inferred_relationships.append(rel)
+            pi.relationships = pi.relationships or {}
+            pi.relationships.setdefault('supports_initiative', []).append(bi.value)
+    
+    # 🔁 1. BusinessInitiative → BusinessObjective
+    for bi in type_map.get('BusinessInitiative', []):
+        for bo in type_map.get('BusinessObjective', []):
+            rel = {
+                'source_entity': {'type': bi.entity_type, 'value': bi.value},
+                'target_entity': {'type': bo.entity_type, 'value': bo.value},
+                'relationship_type': 'supports_objective',
+                'confidence': 0.7,
+                'rationale': 'Heuristic: BusinessInitiative and BusinessObjective co-occur.'
+            }
+            inferred_relationships.append(rel)
+            bi.relationships = bi.relationships or {}
+            bi.relationships.setdefault('supports_objective', []).append(bo.value)
+
+    # 🔁 2. BusinessKPI → BusinessObjective
+    for kpi in type_map.get('BusinessKPI', []):
+        for bo in type_map.get('BusinessObjective', []):
+            rel = {
+                'source_entity': {'type': kpi.entity_type, 'value': kpi.value},
+                'target_entity': {'type': bo.entity_type, 'value': bo.value},
+                'relationship_type': 'measures_objective',
+                'confidence': 0.75,
+                'rationale': 'Heuristic: BusinessKPI and BusinessObjective likely linked.'
+            }
+            inferred_relationships.append(rel)
+            kpi.relationships = kpi.relationships or {}
+            kpi.relationships.setdefault('measures_objective', []).append(bo.value)
+    
+    # 🔁 3. ProductInitiative → CustomerObjective
+    for pi in type_map.get('ProductInitiative', []):
+        for co in type_map.get('CustomerObjective', []):
+            rel = {
+                'source_entity': {'type': pi.entity_type, 'value': pi.value},
+                'target_entity': {'type': co.entity_type, 'value': co.value},
+                'relationship_type': 'addresses_customer',
+                'confidence': 0.65,
+                'rationale': 'Heuristic: ProductInitiative and CustomerObjective co-occur.'
+            }
+            inferred_relationships.append(rel)
+            pi.relationships = pi.relationships or {}
+            pi.relationships.setdefault('addresses_customer', []).append(co.value)
+
+    # 🔁 4. Product → CustomerSegment
+    for prod in type_map.get('Product', []):
+        for cs in type_map.get('CustomerSegment', []):
+            rel = {
+                'source_entity': {'type': prod.entity_type, 'value': prod.value},
+                'target_entity': {'type': cs.entity_type, 'value': cs.value},
+                'relationship_type': 'targets_customer',
+                'confidence': 0.6,
+                'rationale': 'Heuristic: Product and CustomerSegment co-occur.'
+            }
+            inferred_relationships.append(rel)
+            prod.relationships = prod.relationships or {}
+            prod.relationships.setdefault('targets_customer', []).append(cs.value)
+
+    # 🧠 ProductKPI → ProductInitiative
+    for pkpi in type_map.get('ProductKPI', []):
+        for pi in type_map.get('ProductInitiative', []):
+            rel = {
+                'source_entity': {'type': pkpi.entity_type, 'value': pkpi.value},
+                'target_entity': {'type': pi.entity_type, 'value': pi.value},
+                'relationship_type': 'measures_initiative',
+                'confidence': 0.6,
+                'rationale': 'Heuristic: ProductKPI and ProductInitiative co-occur.'
+            }
+            inferred_relationships.append(rel)
+            pkpi.relationships = pkpi.relationships or {}
+            pkpi.relationships.setdefault('measures_initiative', []).append(pi.value)
+
+    # Add more heuristics as needed (BusinessKPI measures BusinessObjective, etc.)
+    # TODO: Implement additional heuristics using LLM (consult LLM)
+
+    # --- LLM-based inference ---
+    if use_llm and llm_fn is not None:
+        try:
+            entities_json = json.dumps([e.dict() for e in entities], default=str)
+            world_model_json = json.dumps(world_model, default=str) if world_model else '{}'
+            prompt = RELATIONSHIP_INFERENCE_PROMPT.format(entities_json=entities_json, world_model_json=world_model_json)
+            llm_output = llm_fn(prompt)
+            llm_relationships = json.loads(llm_output)
+            for rel in llm_relationships:
+                inferred_relationships.append(rel)
+                # Optionally, update entity.relationships in place
+                src = rel.get('source_entity', {})
+                tgt = rel.get('target_entity', {})
+                for ent in entities:
+                    if ent.entity_type == src.get('type') and ent.value == src.get('value'):
+                        ent.relationships = ent.relationships or {}
+                        ent.relationships.setdefault(rel['relationship_type'], []).append(tgt.get('value'))
+        except Exception as e:
+            if log_fn:
+                log_fn({'event_type': 'relationship_inference_error', 'error': str(e)})
+    return inferred_relationships
 
 
 # --- Telemetry Decorator ---
@@ -94,8 +215,6 @@ def llm_extract_entities(parsed_documents, world_model, prior_entities, llm_fn, 
         {"entity_type": e.entity_type, "value": e.value} for e in (prior_entities or [])
     ], default=str)
     # log_fn and max_attempts are now explicit arguments
-    # Fallback: import keyword_extract_entities here to avoid circular import
-    from .entity_extraction_logic import keyword_extract_entities
     for doc in parsed_documents:
         text = doc.content if hasattr(doc, "content") else str(doc)
         prompt = ENTITY_EXTRACTION_PROMPT.format(
@@ -125,6 +244,9 @@ def llm_extract_entities(parsed_documents, world_model, prior_entities, llm_fn, 
                         source_text_excerpt=text[:200],
                         origin=ent.get("origin", None)
                     )
+                    # Schema hardening: validate instance
+                    if not isinstance(entity, ExtractedEntity):
+                        raise ValueError("LLM extraction did not return ExtractedEntity instance")
                     results.append(entity)
                 success = True
             except Exception as e:
@@ -187,6 +309,8 @@ def deduplicate_entities(all_entities, prior_entities, episodic_memory=None, log
         for prior in prior_entities:
             if is_duplicate_entity(ent, prior):
                 duplicate = True
+                if log_fn:
+                    log_fn({"event_type": "deduplication_success", "entity_type": ent.entity_type, "value": ent.value, "matched_with": prior.value, "match_ratio": SequenceMatcher(None, str(ent.value).lower(), str(prior.value).lower()).ratio()})
                 break
         if not duplicate:
             deduped.append(ent)
@@ -202,18 +326,17 @@ def enrich_entities(entities, world_model, prior_entities):
     Enrich entities with missing context using world model and prior entities.
     Fills missing fields, links related entities, adds timestamps.
     """
-    now = datetime.datetime.utcnow().isoformat()
     enriched = []
     for ent in entities:
         # Fill missing fields from world model or prior entities
         if not ent.confidence:
             ent.confidence = 0.8  # Default if not set
         if not ent.created_at:
-            ent.created_at = now
+            ent.created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
         if not ent.step:
             ent.step = "entity_extraction"
-        # Example: link to related ProductInitiative if entity is BusinessObjective
-        if ent.entity_type == "BusinessObjective" and world_model:
+        # Example: link to related ProductInitiative if entity is BusinessInitiative
+        if ent.entity_type == "BusinessInitiative" and world_model:
             related = [pi for pi in world_model.get("ProductInitiative", []) if ent.value.lower() in str(pi).lower()]
             if related:
                 ent.relationships = ent.relationships or {}
