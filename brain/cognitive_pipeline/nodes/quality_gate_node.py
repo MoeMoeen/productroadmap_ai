@@ -1,4 +1,4 @@
-# brain/langgraph_flow/nodes/quality_gate_node.py
+# brain/cognitive_pipeline/nodes/quality_gate_node.py
 
 from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun

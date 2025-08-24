@@ -1,4 +1,4 @@
-# brain/langgraph_flow/nodes/extract_entities_node.py
+# brain/cognitive_pipeline/nodes/extract_entities_node.py
 
 from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
@@ -14,7 +14,6 @@ def extract_entities_node(run: BrainRun, state: GraphState) -> GraphState:
     Populates state.extracted_entities for downstream layers.
 
     TODO:
-    - Implement entity extraction logic
     - Integrate with entity_extraction_layer
     """
 

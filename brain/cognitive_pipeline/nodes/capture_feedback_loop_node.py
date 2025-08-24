@@ -1,4 +1,4 @@
-# brain/langgraph_flow/nodes/capture_feedback_loop_node.py
+# brain/cognitive_pipeline/nodes/extract_entities_node.py
 
 from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
