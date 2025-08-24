@@ -1,1 +1,1 @@
-# brain/langgraph_flow/__init__.py
+# brain/cognitive_pipeline/__init__.py

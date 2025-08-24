@@ -26,20 +26,87 @@ class BusinessInitiative(BaseModel):
     # Add more business-initiative-specific fields as needed
 
 
+
+
+# --- Summary Pydantic models for nested entities ---
+class ProductSummary(BaseModel):
+    id: int
+    name: str
+
+class InitiativeSummary(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+
+class ObjectiveSummary(BaseModel):
+    id: int
+    title: str
+
+class KpiSummary(BaseModel):
+    id: int
+    name: str
+    unit: Optional[str] = None
+
+
 class BusinessProfile(BaseModel):
     """
-    Structured business profile extracted from documents.
+    Structured business profile mapped to Organization and related models.
     """
-    name: Optional[str] = None
-    vision: Optional[str] = None
-    strategy: Optional[str] = None
-    product_model: Optional[str] = None
-    kpis: Optional[List[str]] = None
-    business_initiatives: Optional[List[str]] = None
-    product_initiatives: Optional[List[str]] = None
-    goals: Optional[List[str]] = None
-    # Add more fields as needed
+    name: Optional[str]
+    vision: Optional[str]
+    markets: Optional[List[str]]
 
+    products: Optional[List[ProductSummary]] = None
+    product_initiatives: Optional[List[InitiativeSummary]] = None
+    product_kpis: Optional[List[KpiSummary]] = None
+
+    business_initiatives: Optional[List[InitiativeSummary]] = None
+    business_objectives: Optional[List[ObjectiveSummary]] = None
+    business_kpis: Optional[List[KpiSummary]] = None
+
+    customer_objectives: Optional[List[ObjectiveSummary]] = None
+    customer_segments: Optional[List[str]] = None
+
+    @classmethod
+    def from_organization(cls, org) -> "BusinessProfile":
+        # markets is a comma-separated string
+        markets = [m.strip() for m in org.markets.split(",") if m.strip()] if getattr(org, "markets", None) else []
+        return cls(
+            name=org.name,
+            vision=getattr(org, "vision", None),
+            markets=markets,
+
+            products=[ProductSummary(id=p.id, name=p.name) for p in org.products.all()],
+            product_initiatives=[
+                InitiativeSummary(id=pi.id, title=pi.title, description=getattr(pi, "description", None))
+                for pi in org.product_initiatives.all()
+            ],
+            product_kpis=[
+                KpiSummary(id=k.id, name=k.name, unit=getattr(k, "unit", None))
+                for k in org.product_kpis.all()
+            ],
+
+            business_initiatives=[
+                InitiativeSummary(id=b.id, title=b.title, description=getattr(b, "description", None))
+                for b in org.business_initiatives.all()
+            ],
+            business_objectives=[
+                ObjectiveSummary(id=o.id, title=o.title)
+                for o in org.business_objectives.all()
+            ],
+            business_kpis=[
+                KpiSummary(id=k.id, name=k.name, unit=getattr(k, "unit", None))
+                for k in org.business_kpis.all()
+            ],
+
+            customer_objectives=[
+                ObjectiveSummary(id=c.id, title=c.name)
+                for c in org.customer_objectives.all()
+            ],
+            customer_segments=[
+                cs.name for cs in org.customer_segments.all()
+            ]
+        )
 
 
 # Renamed for clarity: PlanForStep → StepStrategy

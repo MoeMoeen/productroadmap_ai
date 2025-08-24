@@ -19,9 +19,6 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 import json
 
-from anthropic import Anthropic
-from openai import OpenAI
-
 from .document_processor import DocumentProcessor, DocumentProcessingError
 from brain.cognitive_pipeline.schema import ParsedDocument, DocumentMetadata, DocumentParsingValidationResult
 
@@ -38,16 +35,8 @@ class LLMDocumentProcessor(DocumentProcessor):
     def __init__(self, anthropic_api_key: Optional[str] = None, openai_api_key: Optional[str] = None):
         super().__init__()
         self.traditional_processor = DocumentProcessor()
-        
-        # Initialize LLM clients
-        self.anthropic_client = None
-        self.openai_client = None
-        
-        if anthropic_api_key:
-            self.anthropic_client = Anthropic(api_key=anthropic_api_key)
-        if openai_api_key:
-            self.openai_client = OpenAI(api_key=openai_api_key)
-        
+        self.anthropic_api_key = anthropic_api_key
+        self.openai_api_key = openai_api_key
         # Processing statistics
         self.stats = {
             "traditional_success": 0,
@@ -206,57 +195,30 @@ class LLMDocumentProcessor(DocumentProcessor):
         return "\n".join(content_parts)
     
     def _get_llm_content_analysis(self, content: str, file_type: str) -> Optional[Dict[str, Any]]:
-        """Get LLM analysis of document content."""
+        """Get LLM analysis of document content using llm_utils."""
+        from brain.cognitive_pipeline.utils.llm_utils import llm_fn_anthropic, llm_fn_openai
         prompt = DOCUMENT_ANALYSIS_PROMPT.format(content=content, file_type=file_type)
-        
         try:
-            if self.anthropic_client:
-                response = self.anthropic_client.messages.create(
-                    model="claude-3-sonnet-20240229",
-                    max_tokens=1000,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                # Handle Anthropic response format with safe attribute access
-                response_content = response.content[0]
-                content = getattr(response_content, 'text', str(response_content))
-                return json.loads(content)
-            
-            elif self.openai_client:
-                response = self.openai_client.chat.completions.create(  # type: ignore
-                    model="gpt-4",
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=1000
-                )
-                # OpenAI Python SDK is dynamic; suppress mypy type errors
-                message_content = response.choices[0].message.content  # type: ignore
-                if message_content is None:
-                    raise ValueError("OpenAI returned empty response")
-                return json.loads(message_content)
-                
+            if self.anthropic_api_key:
+                response = llm_fn_anthropic(prompt, api_key=self.anthropic_api_key, max_tokens=1000)
+                return json.loads(response)
+            elif self.openai_api_key:
+                response = llm_fn_openai(prompt, api_key=self.openai_api_key, max_tokens=1000)
+                return json.loads(response)
         except Exception as e:
             logger.error(f"LLM content analysis failed: {e}")
-        
         return None
     
     def _get_llm_fallback_analysis(self, content: str, file_extension: str) -> Optional[Dict[str, Any]]:
-        """Get LLM analysis as fallback for failed traditional parsing."""
+        """Get LLM analysis as fallback for failed traditional parsing using llm_utils."""
+        from brain.cognitive_pipeline.utils.llm_utils import llm_fn_anthropic
         prompt = FALLBACK_ANALYSIS_PROMPT.format(content=content[:1500], file_extension=file_extension)
-        
         try:
-            if self.anthropic_client:
-                response = self.anthropic_client.messages.create(
-                    model="claude-3-sonnet-20240229",
-                    max_tokens=800,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                # Handle Anthropic response format with safe attribute access
-                response_content = response.content[0]
-                content = getattr(response_content, 'text', str(response_content))
-                return json.loads(content)
-                
+            if self.anthropic_api_key:
+                response = llm_fn_anthropic(prompt, api_key=self.anthropic_api_key, max_tokens=800)
+                return json.loads(response)
         except Exception as e:
             logger.error(f"LLM fallback analysis failed: {e}")
-        
         return None
     
     def _apply_llm_enhancement(self, original_doc: ParsedDocument, enhancement: Dict[str, Any]) -> ParsedDocument:
@@ -367,7 +329,7 @@ class LLMDocumentProcessor(DocumentProcessor):
     
     def _has_llm_capability(self) -> bool:
         """Check if LLM processing is available."""
-        return self.anthropic_client is not None or self.openai_client is not None
+        return self.anthropic_api_key is not None or self.openai_api_key is not None
     
     def get_processing_stats(self) -> Dict[str, Any]:
         """Get processing statistics."""

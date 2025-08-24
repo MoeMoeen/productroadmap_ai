@@ -6,9 +6,9 @@ import logging
 
 from ...models.runs import BrainRun
 from ...utils.telemetry import log_info_event, log_validation_event
-from ...services.document_processor import DocumentProcessor, DocumentProcessingError
-from ...services.llm_document_processor import LLMDocumentProcessor
-from ...services.validators import FileValidator
+from ..utils.document_processor import DocumentProcessor, DocumentProcessingError
+from ..utils.llm_document_processor import LLMDocumentProcessor
+from ..utils.file_validators import FileValidator
 from ..schema import GraphState, ParsedDocument, DocumentMetadata, DocumentParsingValidationResult
 from ..logic.perception_logic import parse_documents_logic
 
@@ -38,7 +38,7 @@ def _select_processor():
         return DocumentProcessor(), "traditional_only"
 
 
-def _process_files(processor, file_paths, run, processing_method):
+def _process_files(processor : DocumentProcessor | LLMDocumentProcessor, file_paths : list[str], run : BrainRun, processing_method : str):
     validation_result = FileValidator.validate_file_paths(file_paths)
     log_validation_event(run, "parse_documents", {
         "is_valid": validation_result.is_valid,

@@ -41,7 +41,7 @@ def world_model_layer(run: BrainRun, state: GraphState) -> GraphState:
 
 	# 2. Update the world model (in-memory, using BusinessProfile Pydantic model)
 	from brain.cognitive_pipeline.schema import BusinessProfile
-	bp_data = state.business_profile.dict() if state.business_profile else {}
+	bp_data = state.business_profile.model_dump() if state.business_profile else {}
 
 	# Example: add all entity values by type (append to lists)
 	for ent in extracted_entities:
