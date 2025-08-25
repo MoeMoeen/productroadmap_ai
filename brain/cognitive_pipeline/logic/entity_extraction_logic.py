@@ -1,5 +1,7 @@
 # brain/cognitive_pipeline/logic/entity_extraction_logic.py
 
+from brain.models.memory import EpisodicMemoryEvent
+
 from typing import List, Any, Dict, Optional
 from ..schema import ExtractedEntity
 from difflib import SequenceMatcher
@@ -163,47 +165,50 @@ def log_extraction_event(entity, run_id=None, log_fn=None):
         "run_id": run_id,
         "timestamp": entity.created_at,
     }
+
+    def append_to_jsonl_file(filename: str, data: dict):
+        """
+        Append a JSONL record to a file.
+        """
+        import json
+        with open(filename, "a", encoding="utf-8") as f:
+            json.dump(data, f)
+            f.write("\n")
+
+    if run_id:
+        # Persist to DB
+        try:
+            EpisodicMemoryEvent.objects.create(
+                run_id=run_id,
+                event_type=event["event_type"],
+                step=event["step"],
+                entity_type=event["entity_type"],
+                value=event["value"],
+                confidence=event["confidence"],
+                extraction_method=event["extraction_method"],
+                relationships=event["relationships"],
+                raw_data=event
+            )
+        except Exception as e:
+            if log_fn:
+                log_fn({"event_type": "episodic_memory_persist_error", "error": str(e)})
+        # Log to file
+        from pathlib import Path
+        LOG_DIR = Path("logs")
+        LOG_DIR.mkdir(exist_ok=True)
+        jsonl_path = LOG_DIR / f"episodic_{run_id}.jsonl"
+        append_to_jsonl_file(str(jsonl_path), event)
+
     if log_fn:
         log_fn(event)
+
     return event
-
-# --- Final Pipeline Wiring Example ---
-@log_time
-def run_entity_extraction_pipeline(
-    parsed_documents,
-    world_model,
-    semantic_memory,
-    episodic_memory,
-    llm_fn,
-    run_id=None,
-    log_fn=None,
-    max_attempts=2
-):
-    """
-    Full pipeline: keyword + LLM extraction, deduplication, enrichment, and episodic memory logging.
-    Returns list of enriched ExtractedEntity.
-    """
-    # 1. Keyword extraction
-    keyword_entities = log_time(keyword_extract_entities)(parsed_documents, world_model, semantic_memory, log_fn=log_fn)
-    # 2. LLM extraction
-    llm_entities = log_time(llm_extract_entities)(parsed_documents, world_model, semantic_memory, llm_fn, log_fn=log_fn, max_attempts=max_attempts)
-    # 3. Combine and deduplicate
-    all_entities = keyword_entities + llm_entities
-    deduped_entities = log_time(deduplicate_entities)(all_entities, semantic_memory, episodic_memory, log_fn=log_fn)
-    # 4. Enrich
-    enriched_entities = log_time(enrich_entities)(deduped_entities, world_model, semantic_memory, log_fn=log_fn)
-    # 5. Log to episodic memory
-    for ent in enriched_entities:
-        log_extraction_event(ent, run_id=run_id, log_fn=log_fn)
-    return enriched_entities
-
-
 
 
 # --- Step 4: LLM-Based Extraction Logic ---
 
 
-def llm_extract_entities(parsed_documents, world_model, prior_entities, llm_fn, max_tokens=2048, log_fn=None, max_attempts=2):
+def llm_extract_entities(parsed_documents : list, world_model, prior_entities, llm_fn, max_tokens=2048, log_fn=None, max_attempts=2):
     """
     Use an LLM to extract entities from parsed documents. Handles prompt construction, output validation, and error handling.
     llm_fn: function that takes a prompt and returns a string (LLM output)
@@ -408,6 +413,7 @@ def entity_extraction_logic(
     """
     Extracts entities from parsed documents, using both keyword/heuristic and LLM-based methods.
     Incorporates semantic and episodic memory for continuity and enrichment.
+    Process includes: keyword extraction, LLM-based extraction, deduplication, enrichment, and relationship inference.
     Returns a tuple: (list of enriched ExtractedEntity, list of inferred relationships).
     """
     # 1. Read from semantic memory to prevent duplicates and enrich context
