@@ -1,9 +1,10 @@
+# accounts/models.py
+
 from django.db import models
 from common.models import TimeStampedModel  # Assuming TimeStampedModel is in common/models.py
 from django.contrib.auth.models import AbstractUser
 
 # Create your models here.
-
 
 class Product(models.Model):
     name = models.CharField(max_length=255)
