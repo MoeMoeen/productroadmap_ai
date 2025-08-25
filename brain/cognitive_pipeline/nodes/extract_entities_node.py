@@ -6,7 +6,7 @@ from brain.cognitive_pipeline.utils.utils import log_node_io, handle_errors
 
 @handle_errors(raise_on_error=False)
 @log_node_io(node_name="extract_entities_node")
-def extract_entities_node(run: BrainRun, state: GraphState) -> GraphState:
+def extract_entities_node(run: BrainRun, state: GraphState, llm_fn = None) -> GraphState:
     """
     Atomic Node: Extract Entities
 
@@ -28,7 +28,7 @@ def extract_entities_node(run: BrainRun, state: GraphState) -> GraphState:
     from brain.cognitive_pipeline.schema import ExtractedEntity
 
     # Allow for dependency injection (for prod/tests)
-    llm_fn = getattr(run, "llm_fn", None)
+    # llm_fn = getattr(run, "llm_fn", None)
     if llm_fn is None:
         raise ValueError("llm_fn must be provided on BrainRun for entity extraction")
 

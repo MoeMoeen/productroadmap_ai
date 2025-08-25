@@ -15,12 +15,6 @@ from ..logic.perception_logic import parse_documents_logic
 logger = logging.getLogger(__name__)
 
 
-def _validate_inputs(state):
-    if not state.uploaded_files and not state.links:
-        raise DocumentProcessingError("No files or links provided for processing")
-    return True
-
-
 def _select_processor():
     from decouple import config
     from typing import Optional
@@ -76,17 +70,6 @@ def _process_files(processor : DocumentProcessor | LLMDocumentProcessor, file_pa
         "processing_method": processing_method
     })
     return parsed_documents, stats
-
-
-def _log_processing_summary(run, parsed_documents, validation_summary, stats, llm_used):
-    log_info_event(run, "parse_documents", "Hybrid document parsing completed", {
-        "documents_processed": len(parsed_documents),
-        "total_content_length": sum(len(doc.content) for doc in parsed_documents),
-        "validation_summary": validation_summary,
-        "hybrid_processing_used": True,
-        "llm_used": llm_used,
-        "processing_stats": stats
-    })
 
 
 def parse_documents_node(run: BrainRun, state: GraphState) -> GraphState:

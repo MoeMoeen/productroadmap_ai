@@ -7,6 +7,8 @@ from langgraph.graph.state import CompiledStateGraph
 from ..models import BrainRun
 from .schema import GraphState
 from brain.cognitive_pipeline.nodes.perception_node import parse_documents_node
+from brain.cognitive_pipeline.nodes.extract_entities_node import extract_entities_node
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +26,12 @@ class ProductRoadmapGraph:
 		workflow = StateGraph(GraphState)
 		# Add nodes for each cognitive layer (currently only parse_documents)
 		workflow.add_node("parse_documents", self._parse_documents_wrapper)
+		workflow.add_node("extract_entities", self._extract_entities_wrapper)
+
 		# TODO: Add more nodes for other cognitive layers
+		
 		workflow.set_entry_point("parse_documents")
-		workflow.add_edge("parse_documents", END)
+		workflow.add_edge("extract_entities", END)
 		return workflow.compile()
 
 	def _parse_documents_wrapper(self, state: GraphState) -> GraphState:
@@ -35,6 +40,12 @@ class ProductRoadmapGraph:
 		if not run:
 			raise ValueError("BrainRun instance required in state.context['run']")
 		return parse_documents_node(run, state)
+
+	def _extract_entities_wrapper(self, state: GraphState) -> GraphState:
+		"""Wrapper for extract_entities_node to handle BrainRun context."""
+		run = state.context.get("run") if state.context else None
+		llm_fn = state.context.get("llm_fn") if state.context else None
+		return extract_entities_node(run, state, llm_fn=llm_fn)
 
 	def run_workflow(self, run: BrainRun, initial_state: GraphState) -> GraphState:
 		"""
@@ -45,10 +56,15 @@ class ProductRoadmapGraph:
 		Returns:
 			Final GraphState with all processing results
 		"""
+		from brain.cognitive_pipeline.utils.llm_utils import llm_fn_openai
 		try:
 			if not initial_state.context:
 				initial_state.context = {}
 			initial_state.context["run"] = run
+			# ✅ Inject the function directly onto the run object
+			initial_state.context["llm_fn"] = llm_fn_openai
+
+			# Invoke the graph with the initial state
 			final_state = self.graph.invoke(initial_state)
 			logger.info(f"Workflow completed successfully for run {run.id}")
 			return GraphState(**final_state) if isinstance(final_state, dict) else final_state
@@ -120,23 +136,3 @@ def run_parse_documents_enhanced(
 	final_state = parse_documents_node(run, initial_state)
 	return final_state.model_dump()
 
-def run_parse_documents(files=None, urls=None, approvals=None, metadata=None) -> Dict[str, Any]:
-	"""
-	Legacy function for backward compatibility.
-	Note: This creates a minimal BrainRun for compatibility but won't persist telemetry.
-	Use run_parse_documents_enhanced for full functionality.
-	"""
-	from ..models import BrainRun
-	run = BrainRun(
-		status="running",
-		organization_id=None,
-		metadata=metadata or {}
-	)
-	return run_parse_documents_enhanced(
-		run=run,
-		uploaded_files=files or [],
-		links=urls or [],
-		framework="RICE",
-		product_context="",
-		organization_id=None
-	)
