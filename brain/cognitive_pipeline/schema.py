@@ -69,6 +69,11 @@ class BusinessProfile(BaseModel):
 
     @classmethod
     def from_organization(cls, org) -> "BusinessProfile":
+        """
+        Create a BusinessProfile from an Organization instance.
+        How is it used? This method is typically called during the initialization of the cognitive pipeline
+        to create a structured representation of the organization's business profile.
+        """
         # markets is a comma-separated string
         markets = [m.strip() for m in org.markets.split(",") if m.strip()] if getattr(org, "markets", None) else []
         return cls(

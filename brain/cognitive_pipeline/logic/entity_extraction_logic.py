@@ -214,13 +214,17 @@ def llm_extract_entities(parsed_documents, world_model, prior_entities, llm_fn, 
     prior_entities_str = json.dumps([
         {"entity_type": e.entity_type, "value": e.value} for e in (prior_entities or [])
     ], default=str)
+    # Load and format the relationship schema for prompt injection
+    from brain.prompts.entity_extraction_prompts import load_relationship_schema
+    relationship_schema_str = load_relationship_schema()
     # log_fn and max_attempts are now explicit arguments
     for doc in parsed_documents:
         text = doc.content if hasattr(doc, "content") else str(doc)
         prompt = ENTITY_EXTRACTION_PROMPT.format(
             world_model=world_model_str,
             prior_entities=prior_entities_str,
-            document=text[:max_tokens]
+            document=text[:max_tokens],
+            relationship_schema=relationship_schema_str
         )
         attempt = 0
         success = False

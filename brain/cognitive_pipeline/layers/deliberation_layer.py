@@ -1,4 +1,4 @@
-# brain/langgraph_flow/layers/deliberation_layer.py
+# brain/cognitive_pipeline/layers/deliberation_layer.py
 
 from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun

@@ -1,0 +1,40 @@
+# brain/prompts/relationship_schema.yaml
+# Defines typical relationships between business entities for LLM extraction guidance.
+
+relationships:
+  - type: supports_initiative
+    description: "A ProductInitiative supports a BusinessInitiative."
+    example:
+      source_entity: {type: ProductInitiative, value: "AI-powered Search"}
+      target_entity: {type: BusinessInitiative, value: "Digital Transformation"}
+      relationship_type: supports_initiative
+  - type: supports_objective
+    description: "A BusinessInitiative supports a BusinessObjective."
+    example:
+      source_entity: {type: BusinessInitiative, value: "Digital Transformation"}
+      target_entity: {type: BusinessObjective, value: "Increase Market Share"}
+      relationship_type: supports_objective
+  - type: measures_objective
+    description: "A BusinessKPI measures a BusinessObjective."
+    example:
+      source_entity: {type: BusinessKPI, value: "Revenue Growth"}
+      target_entity: {type: BusinessObjective, value: "Increase Market Share"}
+      relationship_type: measures_objective
+  - type: addresses_customer
+    description: "A ProductInitiative addresses a CustomerObjective."
+    example:
+      source_entity: {type: ProductInitiative, value: "AI-powered Search"}
+      target_entity: {type: CustomerObjective, value: "Faster Product Discovery"}
+      relationship_type: addresses_customer
+  - type: targets_customer
+    description: "A Product targets a CustomerSegment."
+    example:
+      source_entity: {type: Product, value: "Mobile App"}
+      target_entity: {type: CustomerSegment, value: "Millennials"}
+      relationship_type: targets_customer
+  - type: measures_initiative
+    description: "A ProductKPI measures a ProductInitiative."
+    example:
+      source_entity: {type: ProductKPI, value: "App Downloads"}
+      target_entity: {type: ProductInitiative, value: "Mobile App Launch"}
+      relationship_type: measures_initiative

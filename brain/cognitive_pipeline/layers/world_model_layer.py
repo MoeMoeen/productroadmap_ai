@@ -1,4 +1,4 @@
-# brain/langgraph_flow/layers/world_model_layer.py
+# brain/cognitive_pipeline/layers/world_model_layer.py
 
 from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
@@ -43,17 +43,76 @@ def world_model_layer(run: BrainRun, state: GraphState) -> GraphState:
 	from brain.cognitive_pipeline.schema import BusinessProfile
 	bp_data = state.business_profile.model_dump() if state.business_profile else {}
 
-	# Example: add all entity values by type (append to lists)
+
+	# --- Mapping from entity_type to BusinessProfile field and summary model ---
+	from brain.cognitive_pipeline.schema import (
+		ProductSummary, InitiativeSummary, ObjectiveSummary, KpiSummary
+	)
+	entity_field_map = {
+		"ProductKPI": ("product_kpis", KpiSummary),
+		"BusinessKPI": ("business_kpis", KpiSummary),
+		"ProductInitiative": ("product_initiatives", InitiativeSummary),
+		"BusinessInitiative": ("business_initiatives", InitiativeSummary),
+		"BusinessObjective": ("business_objectives", ObjectiveSummary),
+		"CustomerObjective": ("customer_objectives", ObjectiveSummary),
+		"Product": ("products", ProductSummary),
+		"CustomerSegment": ("customer_segments", str),
+	}
+
 	for ent in extracted_entities:
 		etype = ent.entity_type if hasattr(ent, "entity_type") else ent.get("entity_type")
 		val = ent.value if hasattr(ent, "value") else ent.get("value")
-		# Map entity types to BusinessProfile fields if possible
-		# Fallback: store in a generic field
-		if etype and hasattr(BusinessProfile, etype.lower() + 's'):
-			field = etype.lower() + 's'
+		if etype in entity_field_map:
+			field, summary_model = entity_field_map[etype]
 			bp_data.setdefault(field, [])
-			if val not in bp_data[field]:
-				bp_data[field].append(val)
+			# Convert value to the correct summary model
+			try:
+				if summary_model is str:
+					summary_val = str(val)
+				elif summary_model is ProductSummary:
+					# Try to extract id and name
+					if isinstance(val, dict):
+						summary_val = ProductSummary(
+							id=int(val.get("id", 0)) if val.get("id") is not None else 0,
+							name=val.get("name", str(val))
+						)
+					else:
+						summary_val = ProductSummary(id=0, name=str(val))
+				elif summary_model is InitiativeSummary:
+					if isinstance(val, dict):
+						summary_val = InitiativeSummary(
+							id=int(val.get("id", 0)) if val.get("id") is not None else 0,
+							title=val.get("title") or val.get("name") or str(val),
+							description=val.get("description")
+						)
+					else:
+						summary_val = InitiativeSummary(id=0, title=str(val))
+				elif summary_model is ObjectiveSummary:
+					if isinstance(val, dict):
+						summary_val = ObjectiveSummary(
+							id=int(val.get("id", 0)) if val.get("id") is not None else 0,
+							title=val.get("title") or val.get("name") or str(val)
+						)
+					else:
+						summary_val = ObjectiveSummary(id=0, title=str(val))
+				elif summary_model is KpiSummary:
+					if isinstance(val, dict):
+						summary_val = KpiSummary(
+							id=int(val.get("id", 0)) if val.get("id") is not None else 0,
+							name=val.get("name") or str(val),
+							unit=val.get("unit")
+						)
+					else:
+						summary_val = KpiSummary(id=0, name=str(val))
+				else:
+					summary_val = val
+				# Avoid duplicates
+				if summary_val not in bp_data[field]:
+					bp_data[field].append(summary_val)
+			except Exception:
+				# Fallback: store in a generic 'entities' field
+				bp_data.setdefault('entities', [])
+				bp_data['entities'].append(ent.dict() if hasattr(ent, 'dict') else dict(ent))
 		else:
 			# Store in a generic 'entities' field
 			bp_data.setdefault('entities', [])
@@ -65,7 +124,9 @@ def world_model_layer(run: BrainRun, state: GraphState) -> GraphState:
 	# Update the business_profile in state
 	state.business_profile = BusinessProfile(**bp_data)
 
+
 	# 3. Persist the updated world model 
+	log_fn = state.context.get("log_fn") if state.context else None
 	try:
 		from brain.models.world_model import WorldModel
 		org_id = getattr(run, "org_id", None) or getattr(state, "org_id", None)
@@ -74,7 +135,6 @@ def world_model_layer(run: BrainRun, state: GraphState) -> GraphState:
 				org_id=org_id,
 				defaults={"data": state.business_profile.dict()}
 			)
-			log_fn = getattr(run, "log_fn", None)
 			if log_fn:
 				log_fn({
 					"event_type": "world_model_persisted",
@@ -83,12 +143,10 @@ def world_model_layer(run: BrainRun, state: GraphState) -> GraphState:
 					"updated_at": str(wm_obj.updated_at)
 				})
 	except Exception as e:
-		log_fn = getattr(run, "log_fn", None)
 		if log_fn:
 			log_fn({"event_type": "world_model_persist_error", "error": str(e)})
 
 	# 4. Log the update
-	log_fn = getattr(run, "log_fn", None)
 	if log_fn:
 		log_fn({
 			"event_type": "world_model_updated",

@@ -6,7 +6,7 @@ from brain.cognitive_pipeline.utils.utils import log_node_io, handle_errors
 
 @handle_errors(raise_on_error=False)
 @log_node_io(node_name="extract_entities_node")
-def extract_entities_node(run: BrainRun, state: GraphState, llm_fn = None) -> GraphState:
+def extract_entities_node(run: BrainRun, state: GraphState, llm_fn = None, log_fn = None) -> GraphState:
     """
     Atomic Node: Extract Entities
 
@@ -32,7 +32,10 @@ def extract_entities_node(run: BrainRun, state: GraphState, llm_fn = None) -> Gr
     if llm_fn is None:
         raise ValueError("llm_fn must be provided on BrainRun for entity extraction")
 
-    log_fn = getattr(run, "log_fn", None)
+    #log_fn = getattr(run, "log_fn", None)
+
+    if log_fn is None:
+        raise ValueError("log_fn must be provided on BrainRun for entity extraction")
 
     # Prepare memory
     semantic_memory = getattr(state, "extracted_entities", None) or []
@@ -71,7 +74,16 @@ def extract_entities_node(run: BrainRun, state: GraphState, llm_fn = None) -> Gr
         enrich_fn=enrich_entities,
         log_event_fn=(lambda ent: log_extraction_event(ent, run_id=getattr(run, "id", None), log_fn=log_fn)) if log_fn else None
     )
+    # Ensure inferred_relationships is always a list
+    if inferred_relationships is None:
+        inferred_relationships = []
+    # Logging for observability
     if log_fn:
+        log_fn({
+            "event_type": "entity_extraction_complete",
+            "entity_count": len(extracted_entities),
+            "relationship_count": len(inferred_relationships)
+        })
         log_fn({"event_type": "relationship_inference_batch_end", "count": len(inferred_relationships)})
     state.extracted_entities = extracted_entities
     state.inferred_relationships = inferred_relationships

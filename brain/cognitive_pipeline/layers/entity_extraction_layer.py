@@ -1,4 +1,4 @@
-# brain/langgraph_flow/layers/entity_extraction_layer.py
+# brain/cognitive_pipeline/layers/entity_extraction_layer.py
 
 from brain.cognitive_pipeline.schema import GraphState
 from brain.models.runs import BrainRun
@@ -30,6 +30,9 @@ def entity_extraction_layer(run: BrainRun, state: GraphState) -> GraphState:
     - Implement logic to extract entities from business context
     - Integrate with atomic entity extraction nodes
     """
-    print("[TODO] Extract structured entities from business context")
-    # state.extracted_entities = ...
-    return state
+    # Call the atomic extract_entities_node
+    from brain.cognitive_pipeline.nodes.extract_entities_node import extract_entities_node
+    llm_fn = state.context.get("llm_fn") if state.context else None
+    log_fn = state.context.get("log_fn") if state.context else None
+    # Call the node and return the updated state
+    return extract_entities_node(run, state, llm_fn=llm_fn, log_fn=log_fn)

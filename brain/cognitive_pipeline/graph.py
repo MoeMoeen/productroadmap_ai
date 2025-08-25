@@ -6,8 +6,10 @@ from langgraph.graph import StateGraph, END
 from langgraph.graph.state import CompiledStateGraph
 from ..models import BrainRun
 from .schema import GraphState
+
 from brain.cognitive_pipeline.nodes.perception_node import parse_documents_node
-from brain.cognitive_pipeline.nodes.extract_entities_node import extract_entities_node
+from brain.cognitive_pipeline.layers.entity_extraction_layer import entity_extraction_layer
+from brain.cognitive_pipeline.layers.world_model_layer import world_model_layer
 
 
 logger = logging.getLogger(__name__)
@@ -24,14 +26,17 @@ class ProductRoadmapGraph:
 	def _build_graph(self) -> CompiledStateGraph:
 		"""Build the LangGraph state graph."""
 		workflow = StateGraph(GraphState)
-		# Add nodes for each cognitive layer (currently only parse_documents)
+		# Add nodes for each cognitive layer
 		workflow.add_node("parse_documents", self._parse_documents_wrapper)
-		workflow.add_node("extract_entities", self._extract_entities_wrapper)
+		workflow.add_node("extract_entities", self._entity_extraction_wrapper)
+		workflow.add_node("world_model_update", self._world_model_update_wrapper)
 
 		# TODO: Add more nodes for other cognitive layers
 		
 		workflow.set_entry_point("parse_documents")
-		workflow.add_edge("extract_entities", END)
+		workflow.add_edge("parse_documents", "extract_entities")
+		workflow.add_edge("extract_entities", "world_model_update")
+		workflow.add_edge("world_model_update", END)
 		return workflow.compile()
 
 	def _parse_documents_wrapper(self, state: GraphState) -> GraphState:
@@ -41,11 +46,16 @@ class ProductRoadmapGraph:
 			raise ValueError("BrainRun instance required in state.context['run']")
 		return parse_documents_node(run, state)
 
-	def _extract_entities_wrapper(self, state: GraphState) -> GraphState:
-		"""Wrapper for extract_entities_node to handle BrainRun context."""
+
+	def _entity_extraction_wrapper(self, state: GraphState) -> GraphState:
+		"""Wrapper for entity_extraction_layer to handle BrainRun context."""
 		run = state.context.get("run") if state.context else None
-		llm_fn = state.context.get("llm_fn") if state.context else None
-		return extract_entities_node(run, state, llm_fn=llm_fn)
+		return entity_extraction_layer(run, state)
+
+	def _world_model_update_wrapper(self, state: GraphState) -> GraphState:
+		"""Wrapper for world_model_layer to handle BrainRun context."""
+		run = state.context.get("run") if state.context else None
+		return world_model_layer(run, state)
 
 	def run_workflow(self, run: BrainRun, initial_state: GraphState) -> GraphState:
 		"""
@@ -61,8 +71,9 @@ class ProductRoadmapGraph:
 			if not initial_state.context:
 				initial_state.context = {}
 			initial_state.context["run"] = run
-			# ✅ Inject the function directly onto the run object
+			# ✅ Inject the functions directly onto the run object
 			initial_state.context["llm_fn"] = llm_fn_openai
+			initial_state.context["log_fn"] = logger.info
 
 			# Invoke the graph with the initial state
 			final_state = self.graph.invoke(initial_state)
@@ -79,7 +90,8 @@ def create_ai_job_workflow(
 	framework: str = "RICE",
 	product_context: str = "",
 	organization_id: Optional[int] = None,
-	user_id: Optional[int] = None
+	user_id: Optional[int] = None,
+	org: Any = None
 ) -> GraphState:
 	"""
 	Create initial GraphState for AI job workflow.
@@ -90,9 +102,14 @@ def create_ai_job_workflow(
 		product_context: Additional context about the product
 		organization_id: Optional organization ID for multi-tenant support
 		user_id: Optional user ID
+		org: Optional Organization ORM/model instance for initializing business_profile
 	Returns:
 		Initialized GraphState ready for workflow execution
 	"""
+	from brain.cognitive_pipeline.schema import BusinessProfile
+	business_profile = None
+	if org is not None:
+		business_profile = BusinessProfile.from_organization(org)
 	return GraphState(
 		org_id=organization_id or 0,
 		user_id=user_id or 0,
@@ -103,6 +120,7 @@ def create_ai_job_workflow(
 		parsed_documents=[],
 		extracted_entities=None,
 		generated_roadmap=None,
+		business_profile=business_profile,
 		context={
 			"organization_id": organization_id,
 			"processing_start_time": None,
