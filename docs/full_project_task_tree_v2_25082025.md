@@ -40,6 +40,8 @@
 - 2.2.3 Add filtering/search (status, segment, date, priority, etc.)  
 - 2.2.4 Add summary serializers for lightweight responses  
 - 2.2.5 Add unit tests for model creation, update, through-model connections  
+- 2.2.6 Add import/export support for roadmap data (CSV, JSON, etc.)  
+- 2.2.7 Add bulk operations (bulk update, bulk status change)  
 
 ---
 
@@ -107,6 +109,11 @@
 - 3.2.5.2 Integration test: perception → extraction → world model  
 - 3.2.5.3 End-to-end test: upload → LLM → roadmap  
 - 3.2.5.4 Regression tests for enrichment, alignment, deduplication  
+- 3.2.5.5 API contract tests (OpenAPI/Swagger validation)  
+
+#### 3.2.6 Prompt Engineering & Extensibility
+- 3.2.6.1 Add LLM prompt versioning and testing
+- 3.2.6.2 Plan for multi-LLM or pluggable LLM backend support
 
 ---
 
@@ -121,6 +128,7 @@
 #### 4.2.1 Auth & Security
 - 4.2.1.1 Add JWT or session-based authentication  
 - 4.2.1.2 Enforce org scoping in all views, queries, serializers  
+- 4.2.1.3 Plan for org-level data isolation and org-level rate limiting  
 
 #### 4.2.2 Async + Storage
 - 4.2.2.1 Add Celery + Redis for async pipeline jobs  
@@ -130,6 +138,7 @@
 - 4.2.3.1 Add central logging (structured logs, file JSONL dumps)  
 - 4.2.3.2 Add GitHub Actions for CI/CD  
 - 4.2.3.3 Dockerize local + staging environments  
+- 4.2.3.4 Add audit logging (who did what, when)
 
 #### 4.2.4 Documentation
 - 4.2.4.1 Add DRF Spectacular tags per ViewSet  
